@@ -4,8 +4,9 @@ import os
 from dotenv import load_dotenv
 from apis.auth import router as auth_router
 from apis.profile import router as profile_router
-
-from .apis.routers import api_router
+from apis.documents import router as documents_router
+from apis.database import router as database_router
+from .agents.mcp_helpers import mcp_router
 from .common.db.connection import engine
 from .common.db.schema import Base
 
@@ -18,7 +19,7 @@ Base.metadata.create_all(bind=engine)
 # Initialize FastAPI app
 app = FastAPI(
     title="Agentic RAG API",
-    description="API for Agentic RAG with SQL and Document Agents using OpenAI LLM",
+    description="API for Agentic RAG with SQL and Document Agents using OpenAI LLM and MCP",
     version="1.0.0"
 )
 
@@ -32,13 +33,39 @@ app.add_middleware(
 )
 
 # Include routers
-app.include_router(api_router, prefix="/api")
 app.include_router(auth_router)
 app.include_router(profile_router)
+app.include_router(documents_router)
+app.include_router(database_router)
+app.include_router(mcp_router)
 
 @app.get("/")
 async def root():
-    return {"message": "Welcome to Agentic RAG API"}
+    return {
+        "message": "Welcome to Agentic RAG API",
+        "mcp_enabled": True,
+        "mcp_server_url": os.getenv("MCP_SERVER_URL", "http://localhost:8080")
+    }
+
+# Start the MCP server in a separate process if configured
+if os.getenv("START_MCP_SERVER", "false").lower() == "true":
+    import subprocess
+    import atexit
+    
+    # Start the MCP server
+    mcp_process = subprocess.Popen(
+        ["python", "-m", "src.agents.mcp_helpers"],
+        env=os.environ.copy()
+    )
+    
+    # Register cleanup function to terminate the MCP server when the app exits
+    def cleanup_mcp_server():
+        if mcp_process:
+            mcp_process.terminate()
+            mcp_process.wait()
+            print("MCP server terminated")
+    
+    atexit.register(cleanup_mcp_server)
 
 if __name__ == "__main__":
     import uvicorn
