@@ -2,6 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import os
 from dotenv import load_dotenv
+from apis.auth import router as auth_router
+from apis.profile import router as profile_router
 
 from .apis.routers import api_router
 from .common.db.connection import engine
@@ -31,6 +33,8 @@ app.add_middleware(
 
 # Include routers
 app.include_router(api_router, prefix="/api")
+app.include_router(auth_router)
+app.include_router(profile_router)
 
 @app.get("/")
 async def root():
