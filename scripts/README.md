@@ -10,6 +10,7 @@ Development environment setup script. Provides options for:
 
 - Docker Compose local development (recommended for most development)
 - Kubernetes with Skaffold (advanced development with K8s)
+- Kubernetes with MCP (Model Context Protocol) support
 
 Usage:
 ```bash
@@ -21,6 +22,14 @@ The script will:
 2. Guide you through selecting a development mode
 3. Set up the necessary environment
 4. Start the selected development environment
+
+#### MCP Development Mode
+
+The MCP (Model Context Protocol) development mode:
+- Sets up the backend with MCP server enabled
+- Configures Kubernetes with appropriate port forwarding
+- Sets up local domain names for easy access (app.local, api.app.local, mcp.app.local)
+- Enables hot-reloading for MCP code changes
 
 ### Adding New Scripts
 

@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+data:
+  START_MCP_SERVER: "true"
+  MCP_SERVER_URL: "http://mcp:8080" 

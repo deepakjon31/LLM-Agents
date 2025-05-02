@@ -25,4 +25,14 @@ spec:
           service:
             name: backend
             port:
-              number: 8000 
+              number: 8000
+  - host: mcp.app.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: mcp
+            port:
+              number: 8080 

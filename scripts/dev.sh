@@ -29,10 +29,15 @@ if ! $DOCKER_COMPOSE version &> /dev/null; then
     fi
 fi
 
+# Get the current directory
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+
 # Development mode selection
 echo -e "${YELLOW}Select development mode:${NC}"
 echo "1) Docker Compose (recommended for local development)"
 echo "2) Kubernetes with Skaffold (advanced)"
+echo "3) Kubernetes with MCP (Model Context Protocol) support"
 read -r dev_mode
 
 if [ "$dev_mode" == "1" ]; then
@@ -117,6 +122,62 @@ elif [ "$dev_mode" == "2" ]; then
     
     echo -e "${GREEN}Starting with Skaffold...${NC}"
     skaffold dev --port-forward
+
+elif [ "$dev_mode" == "3" ]; then
+    echo -e "${GREEN}Setting up MCP development environment...${NC}"
+    
+    # Check if kubectl is installed
+    if ! command -v kubectl &> /dev/null; then
+        echo -e "${RED}kubectl is not installed. Please install kubectl first.${NC}"
+        exit 1
+    fi
+
+    # Check if minikube is installed
+    if ! command -v minikube &> /dev/null; then
+        echo -e "${RED}minikube is not installed. Please install minikube first.${NC}"
+        exit 1
+    fi
+
+    # Start minikube if it's not running
+    if ! minikube status | grep -q "Running"; then
+        echo -e "${YELLOW}Starting minikube...${NC}"
+        minikube start
+    fi
+
+    # Set environment variables for kustomize
+    export BACKEND_CODE_PATH="${PROJECT_DIR}/backend"
+    export FRONTEND_CODE_PATH="${PROJECT_DIR}/frontend"
+
+    # Create namespace if it doesn't exist
+    if ! kubectl get namespace agentic-rag &> /dev/null; then
+        echo -e "${YELLOW}Creating namespace agentic-rag...${NC}"
+        kubectl create namespace agentic-rag
+    fi
+
+    # Apply kustomize configuration
+    echo -e "${YELLOW}Applying Kubernetes configuration...${NC}"
+    kubectl apply -k "${PROJECT_DIR}/k8s"
+
+    # Set up port forwarding for development
+    echo -e "${YELLOW}Setting up port forwarding...${NC}"
+    kubectl -n agentic-rag port-forward svc/frontend 3000:3000 &
+    kubectl -n agentic-rag port-forward svc/backend 8000:8000 &
+    kubectl -n agentic-rag port-forward svc/mcp 8080:8080 &
+
+    # Add hosts entries to /etc/hosts if they don't exist
+    if ! grep -q "app.local" /etc/hosts; then
+        echo -e "${YELLOW}Adding hosts entries to /etc/hosts...${NC}"
+        echo "127.0.0.1 app.local api.app.local mcp.app.local" | sudo tee -a /etc/hosts
+    fi
+
+    echo -e "${GREEN}MCP development environment setup complete!${NC}"
+    echo -e "${GREEN}Frontend URL: http://app.local:3000${NC}"
+    echo -e "${GREEN}Backend API URL: http://api.app.local:8000${NC}"
+    echo -e "${GREEN}MCP URL: http://mcp.app.local:8080${NC}"
+    echo -e "${YELLOW}Press Ctrl+C to stop port forwarding${NC}"
+
+    # Wait for Ctrl+C
+    wait
 else
     echo -e "${RED}Invalid selection.${NC}"
     exit 1

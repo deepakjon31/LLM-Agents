@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Header
 from typing import Dict, Any, List, Optional
 from pydantic import BaseModel, Field
 import asyncio
@@ -6,6 +6,7 @@ import json
 import os
 
 from .client import AgentMCPClient
+from ..common.auth import get_current_user
 
 # Define API models
 class DatabaseConnectionRequest(BaseModel):
@@ -33,7 +34,15 @@ class PromptRequest(BaseModel):
 mcp_router = APIRouter(prefix="/mcp", tags=["MCP"])
 
 # Dependency for MCP client
-async def get_mcp_client():
+async def get_mcp_client(authorization: Optional[str] = Header(None)):
+    # Verify token if provided
+    if authorization:
+        # Extract token from header
+        token = authorization.replace("Bearer ", "") if authorization.startswith("Bearer ") else authorization
+        
+        # Optional: verify token with your authentication system
+        # This would typically call your auth service
+
     mcp_url = os.environ.get("MCP_SERVER_URL", "http://localhost:8080")
     client = AgentMCPClient(server_url=mcp_url)
     try:
@@ -46,7 +55,8 @@ async def get_mcp_client():
 @mcp_router.post("/sql/connect", response_model=Dict[str, Any])
 async def connect_to_database(
     request: DatabaseConnectionRequest,
-    client: AgentMCPClient = Depends(get_mcp_client)
+    client: AgentMCPClient = Depends(get_mcp_client),
+    current_user = Depends(get_current_user)
 ):
     """Connect to a database using the SQL agent."""
     try:
@@ -58,7 +68,8 @@ async def connect_to_database(
 @mcp_router.post("/sql/schema", response_model=Dict[str, Any])
 async def get_table_schema(
     request: TableSchemaRequest,
-    client: AgentMCPClient = Depends(get_mcp_client)
+    client: AgentMCPClient = Depends(get_mcp_client),
+    current_user = Depends(get_current_user)
 ):
     """Get the schema of a database table."""
     try:
@@ -70,7 +81,8 @@ async def get_table_schema(
 @mcp_router.post("/sql/generate", response_model=Dict[str, Any])
 async def generate_sql_query(
     request: SqlGenerationRequest,
-    client: AgentMCPClient = Depends(get_mcp_client)
+    client: AgentMCPClient = Depends(get_mcp_client),
+    current_user = Depends(get_current_user)
 ):
     """Generate a SQL query from natural language."""
     try:
@@ -82,7 +94,8 @@ async def generate_sql_query(
 @mcp_router.post("/sql/execute", response_model=Dict[str, Any])
 async def execute_sql_query(
     request: SqlExecutionRequest,
-    client: AgentMCPClient = Depends(get_mcp_client)
+    client: AgentMCPClient = Depends(get_mcp_client),
+    current_user = Depends(get_current_user)
 ):
     """Execute a SQL query."""
     try:
@@ -95,7 +108,8 @@ async def execute_sql_query(
 @mcp_router.post("/document/process", response_model=Dict[str, Any])
 async def process_document(
     request: DocumentProcessingRequest,
-    client: AgentMCPClient = Depends(get_mcp_client)
+    client: AgentMCPClient = Depends(get_mcp_client),
+    current_user = Depends(get_current_user)
 ):
     """Process a document and generate embeddings."""
     try:
@@ -108,7 +122,8 @@ async def process_document(
 @mcp_router.get("/resources/agent-state/{agent_type}", response_model=Dict[str, Any])
 async def get_agent_state(
     agent_type: str,
-    client: AgentMCPClient = Depends(get_mcp_client)
+    client: AgentMCPClient = Depends(get_mcp_client),
+    current_user = Depends(get_current_user)
 ):
     """Get the current state of an agent."""
     try:
@@ -121,7 +136,8 @@ async def get_agent_state(
 async def get_agent_context(
     agent_type: str,
     session_id: str,
-    client: AgentMCPClient = Depends(get_mcp_client)
+    client: AgentMCPClient = Depends(get_mcp_client),
+    current_user = Depends(get_current_user)
 ):
     """Get the context for a specific agent session."""
     try:
@@ -132,7 +148,8 @@ async def get_agent_context(
 
 @mcp_router.get("/resources/database-tables", response_model=List[str])
 async def get_available_tables(
-    client: AgentMCPClient = Depends(get_mcp_client)
+    client: AgentMCPClient = Depends(get_mcp_client),
+    current_user = Depends(get_current_user)
 ):
     """Get the list of available database tables."""
     try:
@@ -145,7 +162,8 @@ async def get_available_tables(
 @mcp_router.post("/prompts/sql", response_model=str)
 async def get_sql_prompt(
     request: PromptRequest,
-    client: AgentMCPClient = Depends(get_mcp_client)
+    client: AgentMCPClient = Depends(get_mcp_client),
+    current_user = Depends(get_current_user)
 ):
     """Get a SQL generation prompt."""
     try:
@@ -157,7 +175,8 @@ async def get_sql_prompt(
 @mcp_router.post("/prompts/document", response_model=str)
 async def get_document_analysis_prompt(
     request: DocumentProcessingRequest,
-    client: AgentMCPClient = Depends(get_mcp_client)
+    client: AgentMCPClient = Depends(get_mcp_client),
+    current_user = Depends(get_current_user)
 ):
     """Get a document analysis prompt."""
     try:

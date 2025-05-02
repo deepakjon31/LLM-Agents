@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+spec:
+  template:
+    spec:
+      containers:
+      - name: backend
+        env:
+        - name: RELOAD
+          value: "true"
+        - name: START_MCP_SERVER
+          value: "true"
+        - name: MCP_SERVER_URL
+          value: "http://localhost:8080"
+        - name: WATCHDOG_RELOAD_DIRS
+          value: "/app/src/agents/mcp_helpers" # Watch the MCP helpers directory
+        volumeMounts:
+        - name: backend-code
+          mountPath: /app
+          readOnly: false
+      volumes:
+      - name: backend-code
+        hostPath:
+          path: $(BACKEND_CODE_PATH)  # Will be replaced by kustomize
+          type: Directory
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+spec:
+  template:
+    spec:
+      containers:
+      - name: frontend
+        env:
+        - name: WATCHPACK_POLLING
+          value: "true"
+        - name: NEXT_PUBLIC_API_URL
+          value: "http://api.app.local"
+        - name: NEXT_PUBLIC_MCP_URL
+          value: "http://mcp.app.local"
+        volumeMounts:
+        - name: frontend-code
+          mountPath: /app
+          readOnly: false
+      volumes:
+      - name: frontend-code
+        hostPath:
+          path: $(FRONTEND_CODE_PATH)  # Will be replaced by kustomize
+          type: Directory 

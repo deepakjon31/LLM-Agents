@@ -2,14 +2,19 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-  - secrets.yaml
-  - ingress.yaml
-  - backend/deployment.yaml
-  - backend/service.yaml
   - frontend/deployment.yaml
   - frontend/service.yaml
-  - databases/postgres.yaml
-  - databases/mongodb.yaml
+  - backend/deployment.yaml
+  - backend/service.yaml
+  - backend/mcp-service.yaml
+  - backend/configmap.yaml
+  - secrets.yaml
+  - ingress.yaml
+  - databases/mongo-deployment.yaml
+  - databases/mongo-service.yaml
+  - databases/postgres-deployment.yaml
+  - databases/postgres-service.yaml
+  - databases/postgres-initdb-configmap.yaml
 
 namespace: agentic-rag
 
@@ -18,20 +23,26 @@ commonLabels:
   app.kubernetes.io/managed-by: kustomize
 
 configMapGenerator:
-  - name: app-config
+  - name: env-config
     literals:
-      - POSTGRES_DB=agentic_rag
-      - MONGO_DB_NAME=agentic_rag
+      - NEXT_PUBLIC_API_URL=http://api.app.local
+      - NEXTAUTH_URL=http://app.local
+
+secretGenerator:
+  - name: app-secrets
+    env: secrets/app.env
+  - name: db-secrets
+    env: secrets/db.env
 
 patches:
-  - path: patches/resources-patch.yaml
+  - path: patches/local-development.yaml
     target:
       kind: Deployment
 
 images:
-  - name: backend
-    newName: agentic-rag/backend
-    newTag: dev
   - name: frontend
-    newName: agentic-rag/frontend
+    newName: frontend
+    newTag: dev
+  - name: backend
+    newName: backend
     newTag: dev 

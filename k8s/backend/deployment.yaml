@@ -19,6 +19,8 @@ spec:
     metadata:
       labels:
         app: backend
+      annotations:
+        rollme: "{{ randAlphaNum 5 }}" # Force rolling update for code changes
     spec:
       containers:
       - name: backend
@@ -27,6 +29,8 @@ spec:
         ports:
         - containerPort: 8000
           name: http
+        - containerPort: 8080
+          name: mcp
         readinessProbe:
           httpGet:
             path: /
@@ -71,6 +75,15 @@ spec:
             secretKeyRef:
               name: app-secrets
               key: openai-api-key
+        - name: START_MCP_SERVER
+          value: "true"
+        - name: MCP_SERVER_URL
+          value: "http://localhost:8080"
+        command: ["sh", "-c"]
+        args:
+          - |
+            cd /app &&
+            uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
         volumeMounts:
         - name: backend-code
           mountPath: /app

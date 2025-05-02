@@ -103,6 +103,58 @@ A full-stack application for Agentic RAG with Multi-component Prompting (MCP) fo
 docker-compose up -d
 ```
 
+## MCP Integration
+
+This project integrates the Model Context Protocol (MCP) to standardize how our applications provide context to LLMs. The MCP implementation allows for seamless interaction between the frontend, backend, and AI models.
+
+### MCP Architecture
+
+The MCP integration is implemented as a service within our backend, located in the `backend/src/agents/mcp_helpers` directory. This implementation provides:
+
+1. An MCP server that exposes SQL and Document processing capabilities
+2. An MCP client for interacting with the server
+3. REST API endpoints for accessing MCP functionality
+
+### Running with MCP
+
+To run the application with MCP support:
+
+```bash
+# Start the development environment with MCP support
+./scripts/dev.sh
+```
+
+Then select option 3 for "Kubernetes with MCP (Model Context Protocol) support" when prompted.
+
+This script will:
+1. Start a Kubernetes development environment
+2. Configure port forwarding for all services
+3. Set up the necessary host entries
+
+### MCP API Endpoints
+
+The following MCP API endpoints are available:
+
+#### SQL Agent
+- `POST /mcp/sql/connect` - Connect to a database
+- `POST /mcp/sql/schema` - Get schema for a table
+- `POST /mcp/sql/generate` - Generate SQL from natural language
+- `POST /mcp/sql/execute` - Execute SQL queries
+
+#### Document Processor
+- `POST /mcp/document/process` - Process documents and generate embeddings
+
+#### Resources
+- `GET /mcp/resources/agent-state/{agent_type}` - Get the current state of an agent
+- `GET /mcp/resources/agent-context/{agent_type}/{session_id}` - Get context for a specific agent session
+- `GET /mcp/resources/database-tables` - Get available database tables
+
+#### Prompts
+- `POST /mcp/prompts/sql` - Get SQL prompts
+- `POST /mcp/prompts/document` - Get document analysis prompts
+
+For more details on the MCP implementation, please see the [MCP README](backend/README-MCP.md).
+
 ## License
 
 MIT
