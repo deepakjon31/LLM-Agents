@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  labels:
+    app: frontend
+    tier: ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: frontend
+      annotations:
+        rollme: "{{ randAlphaNum 5 }}" # Force rolling update for code changes
+    spec:
+      containers:
+      - name: frontend
+        image: frontend:dev
+        imagePullPolicy: Never # Use local image for development
+        ports:
+        - containerPort: 3000
+          name: http
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        resources:
+          limits:
+            cpu: "300m"
+            memory: "512Mi"
+          requests:
+            cpu: "100m"
+            memory: "256Mi"
+        env:
+        - name: NEXT_PUBLIC_API_URL
+          value: http://backend:8000
+        - name: NEXTAUTH_URL
+          value: http://localhost:3000
+        - name: NEXTAUTH_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: nextauth-secret
+        volumeMounts:
+        - name: frontend-code
+          mountPath: /app
+          readOnly: false
+        - name: node-modules
+          mountPath: /app/node_modules
+      volumes:
+      - name: frontend-code
+        hostPath:
+          path: /path/to/local/frontend  # This will be replaced with actual path
+          type: Directory
+      - name: node-modules
+        emptyDir: {} 

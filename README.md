@@ -47,6 +47,8 @@ A full-stack application for Agentic RAG with Multi-component Prompting (MCP) fo
 │   │   ├── providers/     # Context providers
 │   │   └── types/         # TypeScript type definitions
 │   └── package.json       # Node dependencies
+├── k8s/                   # Kubernetes configuration files
+├── scripts/               # Development and utility scripts
 └── docker-compose.yaml    # Docker compose configuration
 ```
 
@@ -68,7 +70,13 @@ A full-stack application for Agentic RAG with Multi-component Prompting (MCP) fo
    npm run dev
    ```
 
-3. **Environment Variables**:
+3. **Using Development Scripts**:
+   ```bash
+   # For a guided setup experience:
+   ./scripts/dev.sh
+   ```
+
+4. **Environment Variables**:
    - Backend (.env):
      ```
      POSTGRES_USER=postgres

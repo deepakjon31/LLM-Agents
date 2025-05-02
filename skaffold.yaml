@@ -1,0 +1,44 @@
+apiVersion: skaffold/v2beta29
+kind: Config
+metadata:
+  name: agentic-rag
+build:
+  artifacts:
+  - image: backend
+    context: backend
+    docker:
+      dockerfile: Dockerfile
+    sync:
+      manual:
+        - src: '**/*.py'
+          dest: .
+        - src: '**/*.json'
+          dest: .
+  - image: frontend
+    context: frontend
+    docker:
+      dockerfile: Dockerfile.dev
+    sync:
+      manual:
+        - src: 'src/**/*'
+          dest: .
+          strip: src/
+        - src: 'public/**/*'
+          dest: .
+          strip: public/
+deploy:
+  kustomize:
+    paths: ["k8s"]
+portForward:
+  - resourceType: deployment
+    resourceName: frontend
+    port: 3000
+    localPort: 3000
+  - resourceType: deployment
+    resourceName: backend
+    port: 8000
+    localPort: 8000
+profiles:
+  - name: dev
+    activation:
+      - command: dev 

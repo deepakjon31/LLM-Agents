@@ -1,0 +1,37 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - secrets.yaml
+  - ingress.yaml
+  - backend/deployment.yaml
+  - backend/service.yaml
+  - frontend/deployment.yaml
+  - frontend/service.yaml
+  - databases/postgres.yaml
+  - databases/mongodb.yaml
+
+namespace: agentic-rag
+
+commonLabels:
+  app.kubernetes.io/part-of: agentic-rag
+  app.kubernetes.io/managed-by: kustomize
+
+configMapGenerator:
+  - name: app-config
+    literals:
+      - POSTGRES_DB=agentic_rag
+      - MONGO_DB_NAME=agentic_rag
+
+patches:
+  - path: patches/resources-patch.yaml
+    target:
+      kind: Deployment
+
+images:
+  - name: backend
+    newName: agentic-rag/backend
+    newTag: dev
+  - name: frontend
+    newName: agentic-rag/frontend
+    newTag: dev 
