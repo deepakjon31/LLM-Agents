@@ -1,14 +1,19 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
+from fastapi.responses import JSONResponse
 from typing import List, Optional
-from ..common.auth.jwt_bearer import JWTBearer
-from ..agents.document_processor import DocumentProcessor
-from ..common.db.connection import get_db
+from src.common.db.connection import get_db, get_mongo_collection
+from src.common.db.schema import Document, User
+from src.common.pydantic_models.document_models import DocumentResponse
+from src.apis.auth import get_current_user
+from src.agents.document_processor import DocumentProcessor
 import os
 from datetime import datetime
 import shutil
+import uuid
 from pathlib import Path
+from src.common.auth.jwt_bearer import JWTBearer
 
-router = APIRouter(prefix="/documents", tags=["documents"])
+router = APIRouter(prefix="/documents", tags=["Documents"])
 
 # Create upload directory if it doesn't exist
 UPLOAD_DIR = Path("uploads")
@@ -105,4 +110,108 @@ async def delete_document(
     await db.documents.delete_one({"_id": document_id})
     await db.document_chunks.delete_many({"document_id": document_id})
     
-    return {"status": "success"} 
+    return {"status": "success"}
+
+@router.post("/query")
+async def query_documents(
+    request: dict,
+    current_user: dict = Depends(JWTBearer())
+):
+    """Query documents using semantic search with embeddings."""
+    try:
+        # Validate request
+        if "prompt" not in request or not request["prompt"].strip():
+            raise HTTPException(status_code=400, detail="Prompt is required")
+        
+        if "document_ids" not in request or not request["document_ids"]:
+            raise HTTPException(status_code=400, detail="At least one document ID is required")
+            
+        prompt = request["prompt"]
+        document_ids = request["document_ids"]
+        
+        # Generate embedding for the query
+        processor = DocumentProcessor(os.getenv("OPENAI_API_KEY"))
+        query_embedding = processor._get_embedding(prompt)
+        
+        # Fetch document chunks for the specified documents
+        db = get_db()
+        
+        # Convert document_ids to list if it's a single string
+        if isinstance(document_ids, str):
+            document_ids = [document_ids]
+            
+        chunks = await db.document_chunks.find(
+            {"document_id": {"$in": document_ids}}
+        ).to_list(length=None)
+        
+        if not chunks:
+            return {
+                "response": "No document chunks found for the specified documents.",
+                "sources": []
+            }
+        
+        # Calculate similarity between query and each chunk
+        results = []
+        for chunk in chunks:
+            # Calculate cosine similarity
+            chunk_embedding = chunk["embedding"]
+            similarity = _calculate_similarity(query_embedding, chunk_embedding)
+            
+            results.append({
+                "chunk": chunk,
+                "similarity": similarity
+            })
+        
+        # Sort by similarity (highest first)
+        results.sort(key=lambda x: x["similarity"], reverse=True)
+        
+        # Take top 5 most relevant chunks
+        top_chunks = results[:5]
+        
+        # Build context from top chunks
+        context = "\n\n".join([chunk["chunk"]["text"] for chunk in top_chunks])
+        
+        # Generate response using OpenAI
+        messages = [
+            {"role": "system", "content": f"You are a helpful assistant answering questions based on the following document context:\n\n{context}"},
+            {"role": "user", "content": prompt}
+        ]
+        
+        completion = processor.client.chat.completions.create(
+            model="gpt-4o",
+            messages=messages,
+            temperature=0.0,
+            max_tokens=1000
+        )
+        
+        response = completion.choices[0].message.content
+        
+        # Build sources information
+        sources = []
+        for result in top_chunks:
+            chunk = result["chunk"]
+            doc = await db.documents.find_one({"_id": chunk["document_id"]})
+            if doc:
+                sources.append({
+                    "filename": doc["filename"],
+                    "chunk_text": chunk["text"][:100] + "..." if len(chunk["text"]) > 100 else chunk["text"]
+                })
+        
+        return {
+            "response": response,
+            "sources": sources
+        }
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+def _calculate_similarity(vec1, vec2):
+    """Calculate cosine similarity between two vectors."""
+    dot_product = sum(a * b for a, b in zip(vec1, vec2))
+    magnitude1 = sum(a * a for a in vec1) ** 0.5
+    magnitude2 = sum(b * b for b in vec2) ** 0.5
+    
+    if magnitude1 * magnitude2 == 0:
+        return 0
+        
+    return dot_product / (magnitude1 * magnitude2) 

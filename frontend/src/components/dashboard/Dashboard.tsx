@@ -16,10 +16,16 @@ export default function Dashboard() {
   const { data: session } = useSession();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<ActiveTab>('sql-chat');
+  const [documentRefreshTrigger, setDocumentRefreshTrigger] = useState(0);
 
   const handleSignOut = async () => {
     await signOut({ redirect: false });
     router.push('/login');
+  };
+
+  const handleDocumentUploadSuccess = () => {
+    // Increment the trigger to cause DocumentList to refresh
+    setDocumentRefreshTrigger(prev => prev + 1);
   };
 
   const renderContent = () => {
@@ -33,8 +39,8 @@ export default function Dashboard() {
       case 'documents':
         return (
           <div className="space-y-6">
-            <DocumentUpload />
-            <DocumentList />
+            <DocumentUpload onUploadSuccess={handleDocumentUploadSuccess} />
+            <DocumentList refreshTrigger={documentRefreshTrigger} />
           </div>
         );
       default:

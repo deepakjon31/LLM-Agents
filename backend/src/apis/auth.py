@@ -7,9 +7,9 @@ from passlib.context import CryptContext
 import os
 from typing import Optional
 
-from ..common.db.connection import get_db
-from ..common.db.schema import User
-from ..common.pydantic_models.user_models import UserCreate, UserResponse, Token, TokenData, UserUpdate
+from src.common.db.connection import get_db
+from src.common.db.schema import User
+from src.common.pydantic_models.user_models import UserCreate, UserResponse, Token, TokenData, UserUpdate
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -21,7 +21,7 @@ SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-for-development-only")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 
 def verify_password(plain_password, hashed_password):
@@ -68,11 +68,12 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
     )
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id: int = payload.get("sub")
+        user_id = payload.get("sub")
         if user_id is None:
             raise credentials_exception
-        token_data = TokenData(user_id=user_id)
-    except JWTError:
+        # Convert string user_id back to integer for database lookup
+        token_data = TokenData(user_id=int(user_id))
+    except (JWTError, ValueError):
         raise credentials_exception
     user = get_user_by_id(db, user_id=token_data.user_id)
     if user is None:
@@ -102,7 +103,11 @@ def signup(user: UserCreate, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=Token)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    user = authenticate_user(db, form_data.username, form_data.password)
+    # Check if username is provided (could be mobile_number)
+    username = form_data.username
+    password = form_data.password
+    
+    user = authenticate_user(db, username, password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -112,7 +117,7 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user.id}, 
+        data={"sub": str(user.id)},  # Convert to string to prevent JSON serialization issues
         expires_delta=access_token_expires
     )
     

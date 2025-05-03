@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from typing import Optional
-from ..common.pydantic_models.user_models import UserProfile, UserProfileUpdate
-from ..common.db.connection import get_db
-from ..common.auth.jwt_bearer import JWTBearer
+from src.common.pydantic_models.user_models import UserProfile, UserProfileUpdate
+from src.common.db.connection import get_db
+from src.common.auth.jwt_bearer import JWTBearer
 from datetime import datetime
 import pymongo
 

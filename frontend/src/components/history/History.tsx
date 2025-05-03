@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { FaHistory, FaDatabase, FaFileAlt, FaCalendarAlt, FaSearch, FaTrash } from 'react-icons/fa';
 import axios from 'axios';
+import { useSession } from 'next-auth/react';
 
 type HistoryItem = {
   id: string;
@@ -14,6 +15,7 @@ type HistoryItem = {
 };
 
 const History: React.FC = () => {
+  const { data: session } = useSession();
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'SQL_AGENT' | 'DOCUMENT_AGENT'>('all');
@@ -24,61 +26,26 @@ const History: React.FC = () => {
       setIsLoading(true);
       
       try {
-        // In a real app, this would fetch from the API
-        // const response = await axios.get('/api/agents/history');
-        // setHistory(response.data);
+        const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/agents/history`, {
+          headers: {
+            'Authorization': `Bearer ${(session as any)?.accessToken || ''}`
+          }
+        });
         
-        // Mock data for demo
-        const mockHistory: HistoryItem[] = [
-          {
-            id: '1',
-            agentType: 'SQL_AGENT',
-            prompt: 'What were our total sales in Q4 2023?',
-            response: 'The total sales for Q4 2023 were $1,245,678, which is a 12% increase from Q3.',
-            timestamp: '2024-01-15T14:32:00Z',
-            hasChart: true,
-          },
-          {
-            id: '2',
-            agentType: 'DOCUMENT_AGENT',
-            prompt: 'What does our refund policy say about damaged items?',
-            response: 'According to our refund policy, customers can return damaged items within 30 days of purchase for a full refund or replacement.',
-            timestamp: '2024-01-14T10:15:00Z',
-          },
-          {
-            id: '3',
-            agentType: 'SQL_AGENT',
-            prompt: 'How many new customers did we acquire in December?',
-            response: 'We acquired 156 new customers in December 2023, which is 23 more than in November.',
-            timestamp: '2024-01-13T16:45:00Z',
-          },
-          {
-            id: '4',
-            agentType: 'DOCUMENT_AGENT',
-            prompt: 'What are the key points in the Q3 financial report?',
-            response: 'The Q3 financial report highlights: 1) Revenue increased by 15% YoY, 2) Operating expenses decreased by 5%, 3) New product line contributed 8% to total revenue, 4) Expansion into European markets is on track.',
-            timestamp: '2024-01-12T09:20:00Z',
-          },
-          {
-            id: '5',
-            agentType: 'SQL_AGENT',
-            prompt: 'Which product category had the highest growth in 2023?',
-            response: 'The "Smart Home" category had the highest growth in 2023 with a 32% increase in sales compared to 2022.',
-            timestamp: '2024-01-11T13:10:00Z',
-            hasChart: true,
-          },
-        ];
-        
-        setHistory(mockHistory);
+        setHistory(response.data);
       } catch (error) {
         console.error('Error fetching history:', error);
+        // Set empty history on error
+        setHistory([]);
       } finally {
         setIsLoading(false);
       }
     };
     
-    fetchHistory();
-  }, []);
+    if (session) {
+      fetchHistory();
+    }
+  }, [session]);
   
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -93,8 +60,11 @@ const History: React.FC = () => {
   
   const handleDeleteHistoryItem = async (id: string) => {
     try {
-      // In a real app, this would be an API call
-      // await axios.delete(`/api/agents/history/${id}`);
+      await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/agents/history/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${(session as any)?.accessToken || ''}`
+        }
+      });
       
       // Remove history item from state
       setHistory(history.filter(item => item.id !== id));

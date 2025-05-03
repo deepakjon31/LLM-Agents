@@ -1,11 +1,17 @@
-from mcp.server.fastmcp import FastMCP
-import json
-from typing import Dict, Any, List, Optional
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from typing import Dict, Any, List, Set, Optional
 import os
+import json
+import asyncio
+import uuid
 from datetime import datetime
 
-from ..sql_agent import SQLAgent
-from ..document_processor import DocumentProcessor
+from src.agents.sql_agent import SQLAgent
+from src.agents.document_processor import DocumentProcessor
+
+app = FastAPI()
 
 # Create an MCP server for backend agents
 mcp = FastMCP("AgentMCP")

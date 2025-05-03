@@ -1,12 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException, Body
-from typing import List, Dict, Any
-from ..common.auth.jwt_bearer import JWTBearer
-from ..agents.sql_agent import SQLAgent
-from ..common.db.connection import get_db
+from sqlalchemy.orm import Session
+from typing import List, Dict, Any, Optional
+from src.common.auth.jwt_bearer import JWTBearer
+from src.agents.sql_agent import SQLAgent
+from src.common.db.connection import get_db
+from src.common.db.schema import Database, DatabaseTable
+from src.common.pydantic_models.database_models import DatabaseCreate, DatabaseResponse, DatabaseTableResponse
+from src.apis.auth import get_current_user
 import os
 from datetime import datetime
 
-router = APIRouter(prefix="/database", tags=["database"])
+router = APIRouter(prefix="/database", tags=["Database"])
 
 @router.post("/connect")
 async def connect_database(

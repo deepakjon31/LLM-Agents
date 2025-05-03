@@ -2,13 +2,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import os
 from dotenv import load_dotenv
-from apis.auth import router as auth_router
-from apis.profile import router as profile_router
-from apis.documents import router as documents_router
-from apis.database import router as database_router
-from .agents.mcp_helpers import mcp_router
-from .common.db.connection import engine
-from .common.db.schema import Base
+from src.apis.auth import router as auth_router
+from src.apis.profile import router as profile_router
+from src.apis.documents import router as documents_router
+from src.apis.database import router as database_router
+from src.agents.mcp_helpers import mcp_router
+from src.common.db.connection import engine
+from src.common.db.schema import Base
 
 # Load environment variables
 load_dotenv()
@@ -26,7 +26,12 @@ app = FastAPI(
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, replace with specific origins
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://app.local:3000",
+        "http://frontend:3000",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

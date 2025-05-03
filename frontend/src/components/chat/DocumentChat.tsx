@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import { FaPaperPlane, FaFileAlt, FaCheck } from 'react-icons/fa';
+import { useSession } from 'next-auth/react';
 
 type Message = {
   id: string;
@@ -20,6 +21,7 @@ type Document = {
 };
 
 const DocumentChat: React.FC = () => {
+  const { data: session } = useSession();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -31,19 +33,30 @@ const DocumentChat: React.FC = () => {
   useEffect(() => {
     const fetchDocuments = async () => {
       try {
-        // Dummy data for now - would be fetched from API
-        setDocuments([
-          { id: '1', filename: 'Company_Policy.pdf', fileType: 'pdf', selected: false },
-          { id: '2', filename: 'Financial_Report_2023.xlsx', fileType: 'xlsx', selected: false },
-          { id: '3', filename: 'Product_Manual.docx', fileType: 'docx', selected: false },
-        ]);
+        const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/documents/list`, {
+          headers: {
+            'Authorization': `Bearer ${(session as any)?.accessToken || ''}`
+          }
+        });
+        
+        // Transform the API response to match our expected structure
+        const docsFromApi = response.data.map((doc: any) => ({
+          id: doc.id,
+          filename: doc.filename,
+          fileType: doc.file_type,
+          selected: false
+        }));
+        
+        setDocuments(docsFromApi);
       } catch (error) {
         console.error('Error fetching documents:', error);
       }
     };
 
-    fetchDocuments();
-  }, []);
+    if (session) {
+      fetchDocuments();
+    }
+  }, [session]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -69,6 +82,26 @@ const DocumentChat: React.FC = () => {
     return documents.some(doc => doc.selected);
   };
 
+  // Save conversation to history
+  const saveToHistory = async (prompt: string, response: string) => {
+    try {
+      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/agents/history`, {
+        agentType: 'DOCUMENT_AGENT',
+        prompt,
+        response,
+        hasChart: false
+      }, {
+        headers: {
+          'Authorization': `Bearer ${(session as any)?.accessToken || ''}`
+        }
+      });
+      
+      console.log('Conversation saved to history');
+    } catch (error) {
+      console.error('Error saving to history:', error);
+    }
+  };
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -83,45 +116,41 @@ const DocumentChat: React.FC = () => {
     };
     
     setMessages((prev) => [...prev, userMessage]);
+    
+    const userPrompt = input;
     setInput('');
     setIsLoading(true);
     
     try {
-      // In a real app, send to the API
-      // const response = await axios.post('/api/agents/document', {
-      //   prompt: input,
-      //   document_ids: getSelectedDocumentIds(),
-      // });
+      // Send to the documents API for querying
+      const response = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/documents/query`,
+        {
+          prompt: userPrompt,
+          document_ids: getSelectedDocumentIds()
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${(session as any)?.accessToken || ''}`
+          }
+        }
+      );
       
-      // Mock response for demo
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      let mockResponse = '';
-      let mockSources: string[] = [];
-      
-      // Simulate response based on query
-      if (input.toLowerCase().includes('policy')) {
-        mockResponse = 'According to the company policy document, employees are entitled to 20 days of paid time off per year.';
-        mockSources = ['Company_Policy.pdf, page 5', 'Company_Policy.pdf, page 12'];
-      } else if (input.toLowerCase().includes('financial') || input.toLowerCase().includes('revenue')) {
-        mockResponse = 'The total revenue for 2023 was $5.2 million, which represents a 15% increase from the previous year.';
-        mockSources = ['Financial_Report_2023.xlsx, Sheet: Income Statement'];
-      } else if (input.toLowerCase().includes('product') || input.toLowerCase().includes('manual')) {
-        mockResponse = 'The product requires monthly maintenance as outlined in section 4.3 of the manual.';
-        mockSources = ['Product_Manual.docx, Section 4: Maintenance'];
-      } else {
-        mockResponse = 'I couldn\'t find specific information about that in the selected documents. Could you rephrase your question?';
-      }
+      const responseData = response.data;
       
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: mockResponse,
+        content: responseData.response,
         timestamp: new Date(),
-        sources: mockSources.length > 0 ? mockSources : undefined,
+        sources: responseData.sources.map((source: any) => `${source.filename}: ${source.chunk_text}`),
       };
       
       setMessages((prev) => [...prev, assistantMessage]);
+      
+      // Save the conversation to history
+      await saveToHistory(userPrompt, responseData.response);
+      
     } catch (error) {
       console.error('Error sending message:', error);
       
@@ -161,8 +190,8 @@ const DocumentChat: React.FC = () => {
                     onClick={() => toggleDocumentSelection(doc.id)}
                     className={`flex items-center p-2 rounded w-full text-left text-sm ${
                       doc.selected
-                        ? 'bg-green-100 text-green-800'
-                        : 'hover:bg-gray-100'
+                        ? 'bg-green-100 text-green-800 font-medium'
+                        : 'hover:bg-gray-100 text-gray-700'
                     }`}
                   >
                     <div className="flex-shrink-0 mr-2">
@@ -172,7 +201,7 @@ const DocumentChat: React.FC = () => {
                         <FaFileAlt className="text-gray-400" />
                       )}
                     </div>
-                    <div className="truncate">{doc.filename}</div>
+                    <div className="truncate font-medium">{doc.filename}</div>
                   </button>
                 </li>
               ))}
@@ -205,14 +234,14 @@ const DocumentChat: React.FC = () => {
                           : 'bg-gray-100 text-gray-800'
                       }`}
                     >
-                      <div className="text-sm">{message.content}</div>
+                      <div className="text-base font-medium leading-relaxed">{message.content}</div>
                       
                       {message.sources && message.sources.length > 0 && (
                         <div className="mt-2 pt-2 border-t border-gray-200">
                           <p className="text-xs font-medium mb-1">Sources:</p>
                           <ul className="space-y-1">
                             {message.sources.map((source, index) => (
-                              <li key={index} className="text-xs opacity-75">
+                              <li key={index} className="text-xs opacity-90 font-medium">
                                 {source}
                               </li>
                             ))}
@@ -220,7 +249,7 @@ const DocumentChat: React.FC = () => {
                         </div>
                       )}
                       
-                      <div className="text-xs mt-1 opacity-70">
+                      <div className="text-xs mt-1 opacity-90 font-medium">
                         {message.timestamp.toLocaleTimeString()}
                       </div>
                     </div>
@@ -238,7 +267,7 @@ const DocumentChat: React.FC = () => {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Ask about your documents..."
-                className="flex-1 px-4 py-2 border rounded-l focus:outline-none focus:ring-1 focus:ring-green-500"
+                className="flex-1 px-4 py-2 border rounded-l focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-800 font-medium text-base"
                 disabled={isLoading || !hasSelectedDocuments()}
               />
               <button

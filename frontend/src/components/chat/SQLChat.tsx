@@ -5,6 +5,7 @@ import axios from 'axios';
 import { FaPaperPlane, FaDatabase } from 'react-icons/fa';
 import { Chart } from 'chart.js/auto';
 import { Bar } from 'react-chartjs-2';
+import { useSession } from 'next-auth/react';
 
 type Message = {
   id: string;
@@ -15,6 +16,7 @@ type Message = {
 };
 
 const SQLChat: React.FC = () => {
+  const { data: session } = useSession();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -48,6 +50,26 @@ const SQLChat: React.FC = () => {
     scrollToBottom();
   }, [messages]);
 
+  // Save conversation to history
+  const saveToHistory = async (prompt: string, response: string, hasChart: boolean = false) => {
+    try {
+      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/agents/history`, {
+        agentType: 'SQL_AGENT',
+        prompt,
+        response,
+        hasChart
+      }, {
+        headers: {
+          'Authorization': `Bearer ${(session as any)?.accessToken || ''}`
+        }
+      });
+      
+      console.log('Conversation saved to history');
+    } catch (error) {
+      console.error('Error saving to history:', error);
+    }
+  };
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -62,6 +84,8 @@ const SQLChat: React.FC = () => {
     };
     
     setMessages((prev) => [...prev, userMessage]);
+    
+    const userPrompt = input;
     setInput('');
     setIsLoading(true);
     
@@ -79,7 +103,7 @@ const SQLChat: React.FC = () => {
       let mockResponse = '';
       
       // Simulate response based on query
-      if (input.toLowerCase().includes('total sales')) {
+      if (userPrompt.toLowerCase().includes('total sales')) {
         mockResponse = 'The total sales for the past month are $125,463.';
         mockChartData = {
           labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
@@ -91,9 +115,9 @@ const SQLChat: React.FC = () => {
             },
           ],
         };
-      } else if (input.toLowerCase().includes('customer')) {
+      } else if (userPrompt.toLowerCase().includes('customer')) {
         mockResponse = 'We have 256 active customers, with 45 new customers added this month.';
-      } else if (input.toLowerCase().includes('product')) {
+      } else if (userPrompt.toLowerCase().includes('product')) {
         mockResponse = 'The top-selling product this month is "Premium Widget" with 1,200 units sold.';
       } else {
         mockResponse = 'I\'m sorry, I couldn\'t find relevant information in the database. Please try a different query.';
@@ -108,6 +132,10 @@ const SQLChat: React.FC = () => {
       };
       
       setMessages((prev) => [...prev, assistantMessage]);
+      
+      // Save the conversation to history
+      await saveToHistory(userPrompt, mockResponse, !!mockChartData);
+      
     } catch (error) {
       console.error('Error sending message:', error);
       
@@ -132,7 +160,7 @@ const SQLChat: React.FC = () => {
           <select
             value={selectedDatabase || ''}
             onChange={(e) => setSelectedDatabase(e.target.value)}
-            className="px-3 py-1 border rounded text-sm"
+            className="px-3 py-1 border rounded text-sm font-medium text-gray-800 bg-white shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
           >
             <option value="">Select a database</option>
             {databases.map((db) => (
@@ -171,7 +199,7 @@ const SQLChat: React.FC = () => {
                       : 'bg-gray-100 text-gray-800'
                   }`}
                 >
-                  <div className="text-sm">{message.content}</div>
+                  <div className="text-base font-medium leading-relaxed">{message.content}</div>
                   
                   {message.chartData && (
                     <div className="mt-4 bg-white p-3 rounded">
@@ -182,10 +210,20 @@ const SQLChat: React.FC = () => {
                           plugins: {
                             legend: {
                               position: 'top',
+                              labels: {
+                                font: {
+                                  size: 14,
+                                  weight: 'bold'
+                                }
+                              }
                             },
                             title: {
                               display: true,
                               text: 'Monthly Sales Data',
+                              font: {
+                                size: 16,
+                                weight: 'bold'
+                              }
                             },
                           },
                         }}
@@ -193,7 +231,7 @@ const SQLChat: React.FC = () => {
                     </div>
                   )}
                   
-                  <div className="text-xs mt-1 opacity-70">
+                  <div className="text-xs mt-1 opacity-90 font-medium">
                     {message.timestamp.toLocaleTimeString()}
                   </div>
                 </div>
@@ -211,7 +249,7 @@ const SQLChat: React.FC = () => {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Ask about your SQL database..."
-            className="flex-1 px-4 py-2 border rounded-l focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="flex-1 px-4 py-2 border rounded-l focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-800 font-medium text-base"
             disabled={isLoading || !selectedDatabase}
           />
           <button

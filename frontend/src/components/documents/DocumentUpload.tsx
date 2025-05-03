@@ -3,8 +3,10 @@
 import { useState, useRef } from 'react';
 import { FaUpload, FaCheck, FaSpinner } from 'react-icons/fa';
 import axios from 'axios';
+import { useSession } from 'next-auth/react';
 
-const DocumentUpload: React.FC = () => {
+const DocumentUpload: React.FC<{ onUploadSuccess?: () => void }> = ({ onUploadSuccess }) => {
+  const { data: session } = useSession();
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -51,51 +53,44 @@ const DocumentUpload: React.FC = () => {
     setUploadProgress(0);
     setError(null);
     
-    // Simulate upload with progress
-    const simulateUpload = () => {
-      let progress = 0;
-      const interval = setInterval(() => {
-        progress += 10;
-        setUploadProgress(progress);
-        
-        if (progress >= 100) {
-          clearInterval(interval);
-          setIsUploading(false);
-          setUploadSuccess(true);
-          
-          // Reset after 3 seconds
-          setTimeout(() => {
-            setFile(null);
-            setUploadProgress(0);
-            setUploadSuccess(false);
-            if (fileInputRef.current) {
-              fileInputRef.current.value = '';
-            }
-          }, 3000);
-        }
-      }, 500);
-    };
-    
-    // In a real app, this would be an API call
     try {
-      // const formData = new FormData();
-      // formData.append('file', file);
+      const formData = new FormData();
+      formData.append('file', file);
       
-      // const response = await axios.post('/api/documents/upload', formData, {
-      //   onUploadProgress: (progressEvent) => {
-      //     const percentCompleted = Math.round(
-      //       (progressEvent.loaded * 100) / progressEvent.total
-      //     );
-      //     setUploadProgress(percentCompleted);
-      //   },
-      // });
+      const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/documents/upload`, formData, {
+        headers: {
+          'Authorization': `Bearer ${(session as any)?.accessToken || ''}`
+        },
+        onUploadProgress: (progressEvent) => {
+          if (progressEvent.total) {
+            const percentCompleted = Math.round(
+              (progressEvent.loaded * 100) / progressEvent.total
+            );
+            setUploadProgress(percentCompleted);
+          }
+        },
+      });
       
-      // For demo, simulate the upload
-      simulateUpload();
+      setIsUploading(false);
+      setUploadSuccess(true);
+      
+      // Reset after 3 seconds
+      setTimeout(() => {
+        setFile(null);
+        setUploadProgress(0);
+        setUploadSuccess(false);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+        // Call the callback if provided to refresh document list
+        if (onUploadSuccess) {
+          onUploadSuccess();
+        }
+      }, 3000);
       
     } catch (err: any) {
       setIsUploading(false);
-      setError(err.response?.data?.message || 'An error occurred during upload');
+      setError(err.response?.data?.detail || 'An error occurred during upload');
       console.error('Upload error:', err);
     }
   };

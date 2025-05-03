@@ -1,3 +1,7 @@
 /backend/.env
-/Frontend/.env
+/frontend/.env
 /.vscode/
+/frontend/node_modules/
+/backend/venv/
+/backend/logs/
+/frontend/logs/

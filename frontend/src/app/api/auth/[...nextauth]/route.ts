@@ -18,7 +18,7 @@ const handler = NextAuth({
         try {
           // Make API call to backend for authentication
           const response = await axios.post(
-            `${process.env.NEXT_PUBLIC_API_URL}/api/auth/login`,
+            `${process.env.NEXT_PUBLIC_API_URL}/auth/login`,
             {
               username: credentials.mobileNumber, // Note: API expects username field
               password: credentials.password,

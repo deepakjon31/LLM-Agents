@@ -1,12 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Header
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Header, Body, Query
 from typing import Dict, Any, List, Optional
 from pydantic import BaseModel, Field
-import asyncio
-import json
 import os
-
-from .client import AgentMCPClient
-from ..common.auth import get_current_user
+import json
+from src.agents.mcp_helpers.client import AgentMCPClient
+from src.common.auth import get_current_user
+from src.agents.sql_agent import SQLAgent
+from src.agents.document_processor import DocumentProcessor
 
 # Define API models
 class DatabaseConnectionRequest(BaseModel):
@@ -183,4 +183,10 @@ async def get_document_analysis_prompt(
         result = await client.get_document_analysis_prompt(request.file_path)
         return result
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) 
+        raise HTTPException(status_code=500, detail=str(e))
+
+# In-memory storage for agent state
+agent_state = {
+    "sql_agent": None,
+    "document_processor": None
+} 

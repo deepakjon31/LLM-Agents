@@ -9,6 +9,7 @@ export default function Signup() {
   const [mobileNumber, setMobileNumber] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
@@ -25,26 +26,43 @@ export default function Signup() {
       setError('Passwords do not match');
       return;
     }
+
+    // Validate email if provided
+    if (email && !email.includes('@')) {
+      setError('Please enter a valid email address');
+      return;
+    }
     
     setIsLoading(true);
     setError('');
     
     try {
-      const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/signup`, {
+      const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/auth/signup`, {
         mobile_number: mobileNumber,
         password: password,
+        email: email || undefined,
       });
       
       if (response.status === 200) {
         router.push('/login');
       }
     } catch (error: any) {
-      if (error.response && error.response.data) {
-        setError(error.response.data.detail || 'An error occurred during signup');
+      console.error('Signup error:', error);
+      if (error.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        if (error.response.data && error.response.data.detail) {
+          setError(error.response.data.detail);
+        } else {
+          setError(`Error: ${error.response.status} - ${error.response.statusText}`);
+        }
+      } else if (error.request) {
+        // The request was made but no response was received
+        setError('No response received from server. Please check your connection.');
       } else {
-        setError('An error occurred during signup');
+        // Something happened in setting up the request that triggered an Error
+        setError(`Error: ${error.message}`);
       }
-      console.error(error);
     } finally {
       setIsLoading(false);
     }
@@ -79,6 +97,21 @@ export default function Signup() {
                 onChange={(e) => setMobileNumber(e.target.value)}
                 className="relative block w-full px-3 py-2 mt-1 text-gray-900 placeholder-gray-500 border border-gray-300 rounded-md appearance-none focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
                 placeholder="+1234567890"
+              />
+            </div>
+            
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                Email (optional)
+              </label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="relative block w-full px-3 py-2 mt-1 text-gray-900 placeholder-gray-500 border border-gray-300 rounded-md appearance-none focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                placeholder="your@email.com"
               />
             </div>
             

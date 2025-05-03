@@ -14,5 +14,11 @@ COPY . .
 # Expose the port
 EXPOSE 3000
 
+# Set environment variables
+ENV NODE_ENV=development
+ENV NEXT_PUBLIC_API_URL=http://localhost:8002
+ENV NEXTAUTH_URL=http://localhost:3000
+ENV NEXTAUTH_SECRET=development_nextauth_secret
+
 # Start the development server
 CMD ["npm", "run", "dev"] 
