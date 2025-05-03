@@ -147,6 +147,11 @@ const UnifiedChat: React.FC = () => {
     router.push('/dashboard?tab=database-connections');
   };
 
+  // Document chat functions
+  const handleAddDocument = () => {
+    router.push('/dashboard?tab=documents');
+  };
+
   const toggleConnectionSelection = (connectionId: string) => {
     if (selectedConnections.includes(connectionId)) {
       setSelectedConnections(selectedConnections.filter(id => id !== connectionId));
@@ -405,7 +410,16 @@ const UnifiedChat: React.FC = () => {
           {activeMode === 'sql' ? (
             /* SQL Mode Sidebar */
             <div>
-              <h3 className="font-medium mb-3">Database Connections</h3>
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="font-medium">Database Connections</h3>
+                <button
+                  onClick={handleAddConnection}
+                  className="p-1.5 bg-indigo-100 text-indigo-700 hover:bg-indigo-200 rounded-full transition-colors flex items-center justify-center"
+                  title="Add new database connection"
+                >
+                  <FaPlus size={14} />
+                </button>
+              </div>
               
               {connections.length === 0 ? (
                 <div className="mt-2">
@@ -420,18 +434,7 @@ const UnifiedChat: React.FC = () => {
                 </div>
               ) : (
                 <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <p className="text-sm text-gray-700">Available Connections</p>
-                    <button
-                      onClick={handleAddConnection}
-                      className="p-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 flex items-center text-sm"
-                      title="Add new database connection"
-                    >
-                      <FaPlus size={12} />
-                    </button>
-                  </div>
-                  
-                  <ul className="space-y-2 overflow-y-auto">
+                  <ul className="space-y-2 overflow-y-auto mt-2">
                     {connections.map((conn) => (
                       <li key={conn.id}>
                         <button
@@ -461,34 +464,54 @@ const UnifiedChat: React.FC = () => {
           ) : (
             /* Document Mode Sidebar */
             <div>
-              <h3 className="font-medium mb-3">Your Documents</h3>
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="font-medium">Your Documents</h3>
+                <button
+                  onClick={handleAddDocument}
+                  className="p-1.5 bg-indigo-100 text-indigo-700 hover:bg-indigo-200 rounded-full transition-colors flex items-center justify-center"
+                  title="Add new document"
+                >
+                  <FaPlus size={14} />
+                </button>
+              </div>
               
               {documents.length === 0 ? (
-                <p className="text-sm text-gray-500">No documents uploaded yet</p>
+                <div className="mt-2">
+                  <p className="text-sm text-gray-500 mb-2">No documents uploaded yet</p>
+                  <button
+                    onClick={handleAddDocument}
+                    className="px-3 py-1 w-full bg-indigo-600 text-white rounded hover:bg-indigo-700 flex items-center text-sm justify-center"
+                  >
+                    <FaPlus className="mr-1" />
+                    Add Document
+                  </button>
+                </div>
               ) : (
-                <ul className="space-y-2 overflow-y-auto">
-                  {documents.map((doc) => (
-                    <li key={doc.id}>
-                      <button
-                        onClick={() => toggleDocumentSelection(doc.id)}
-                        className={`flex items-center p-2 rounded w-full text-left text-sm ${
-                          doc.selected
-                            ? 'bg-indigo-100 text-indigo-800 font-medium'
-                            : 'hover:bg-gray-100 text-gray-700'
-                        }`}
-                      >
-                        <div className="flex-shrink-0 mr-2">
-                          {doc.selected ? (
-                            <FaCheck className="text-indigo-600" />
-                          ) : (
-                            <FaFileAlt className="text-gray-400" />
-                          )}
-                        </div>
-                        <div className="truncate font-medium">{doc.filename}</div>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+                <div>
+                  <ul className="space-y-2 overflow-y-auto mt-2">
+                    {documents.map((doc) => (
+                      <li key={doc.id}>
+                        <button
+                          onClick={() => toggleDocumentSelection(doc.id)}
+                          className={`flex items-center p-2 rounded w-full text-left text-sm ${
+                            doc.selected
+                              ? 'bg-indigo-100 text-indigo-800 font-medium'
+                              : 'hover:bg-gray-100 text-gray-700'
+                          }`}
+                        >
+                          <div className="flex-shrink-0 mr-2">
+                            {doc.selected ? (
+                              <FaCheck className="text-indigo-600" />
+                            ) : (
+                              <FaFileAlt className="text-gray-400" />
+                            )}
+                          </div>
+                          <div className="truncate font-medium">{doc.filename}</div>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               )}
             </div>
           )}
@@ -521,9 +544,18 @@ const UnifiedChat: React.FC = () => {
                 ) : (
                   <>
                     <FaFileAlt className="text-5xl mb-4 text-indigo-300" />
-                    <p className="text-center">
+                    <p className="text-center mb-4">
                       Select documents and ask questions about them
                     </p>
+                    {documents.length === 0 && (
+                      <button
+                        onClick={handleAddDocument}
+                        className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 flex items-center"
+                      >
+                        <FaPlus className="mr-2" size={14} />
+                        Upload Your First Document
+                      </button>
+                    )}
                   </>
                 )}
               </div>
