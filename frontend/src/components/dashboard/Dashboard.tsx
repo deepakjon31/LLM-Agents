@@ -1,22 +1,32 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { signOut, useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Sidebar from './Sidebar';
 import SQLChat from '../chat/SQLChat';
 import DocumentChat from '../chat/DocumentChat';
 import History from '../history/History';
 import DocumentUpload from '../documents/DocumentUpload';
 import DocumentList from '../documents/DocumentList';
+import DatabaseConnections from '../database/DatabaseConnections';
 
-type ActiveTab = 'sql-chat' | 'document-chat' | 'history' | 'documents';
+type ActiveTab = 'sql-chat' | 'document-chat' | 'history' | 'documents' | 'database-connections';
 
 export default function Dashboard() {
   const { data: session } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<ActiveTab>('sql-chat');
   const [documentRefreshTrigger, setDocumentRefreshTrigger] = useState(0);
+
+  useEffect(() => {
+    // Check for 'tab' parameter in URL
+    const tabParam = searchParams.get('tab');
+    if (tabParam && ['sql-chat', 'document-chat', 'history', 'documents', 'database-connections'].includes(tabParam)) {
+      setActiveTab(tabParam as ActiveTab);
+    }
+  }, [searchParams]);
 
   const handleSignOut = async () => {
     await signOut({ redirect: false });
@@ -26,6 +36,12 @@ export default function Dashboard() {
   const handleDocumentUploadSuccess = () => {
     // Increment the trigger to cause DocumentList to refresh
     setDocumentRefreshTrigger(prev => prev + 1);
+  };
+
+  const handleTabChange = (tab: ActiveTab) => {
+    setActiveTab(tab);
+    // Update URL to reflect the current tab
+    router.push(`/dashboard?tab=${tab}`, { scroll: false });
   };
 
   const renderContent = () => {
@@ -43,6 +59,8 @@ export default function Dashboard() {
             <DocumentList refreshTrigger={documentRefreshTrigger} />
           </div>
         );
+      case 'database-connections':
+        return <DatabaseConnections />;
       default:
         return <SQLChat />;
     }
@@ -50,7 +68,7 @@ export default function Dashboard() {
 
   return (
     <div className="flex h-screen bg-gray-100">
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} onSignOut={handleSignOut} />
+      <Sidebar activeTab={activeTab} setActiveTab={handleTabChange} onSignOut={handleSignOut} />
       
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="bg-white shadow-sm z-10">
@@ -60,6 +78,7 @@ export default function Dashboard() {
               {activeTab === 'document-chat' && 'Document Chat'}
               {activeTab === 'history' && 'Chat History'}
               {activeTab === 'documents' && 'Manage Documents'}
+              {activeTab === 'database-connections' && 'Database Connections'}
             </h1>
             <div className="flex items-center">
               <span className="text-sm text-gray-600 mr-4">

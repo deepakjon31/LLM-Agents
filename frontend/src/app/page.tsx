@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Login from '@/components/auth/Login';
-import Dashboard from '@/components/dashboard/Dashboard';
 
 export default function Home() {
   const { data: session, status } = useSession();
@@ -14,8 +13,11 @@ export default function Home() {
   useEffect(() => {
     if (status !== 'loading') {
       setLoading(false);
+      if (session) {
+        router.push('/dashboard');
+      }
     }
-  }, [status]);
+  }, [status, session, router]);
 
   if (loading) {
     return (
@@ -29,5 +31,10 @@ export default function Home() {
     return <Login />;
   }
 
-  return <Dashboard />;
+  // This will only show briefly before the redirect happens
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center p-24">
+      <div className="text-xl">Redirecting to dashboard...</div>
+    </div>
+  );
 }

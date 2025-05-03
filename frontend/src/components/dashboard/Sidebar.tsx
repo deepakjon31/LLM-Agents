@@ -1,9 +1,9 @@
 'use client';
 
 import React from 'react';
-import { FaDatabase, FaFileAlt, FaHistory, FaFolderOpen, FaSignOutAlt } from 'react-icons/fa';
+import { FaDatabase, FaFileAlt, FaHistory, FaFolderOpen, FaSignOutAlt, FaServer } from 'react-icons/fa';
 
-type ActiveTab = 'sql-chat' | 'document-chat' | 'history' | 'documents';
+type ActiveTab = 'sql-chat' | 'document-chat' | 'history' | 'documents' | 'database-connections';
 
 interface SidebarProps {
   activeTab: ActiveTab;
@@ -17,6 +17,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onSignOut })
     { id: 'document-chat', label: 'Document Chat', icon: <FaFileAlt className="mr-3" /> },
     { id: 'history', label: 'Chat History', icon: <FaHistory className="mr-3" /> },
     { id: 'documents', label: 'Manage Documents', icon: <FaFolderOpen className="mr-3" /> },
+    { id: 'database-connections', label: 'Database Connections', icon: <FaServer className="mr-3" /> },
   ];
 
   return (
