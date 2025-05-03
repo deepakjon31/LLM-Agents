@@ -1,6 +1,6 @@
 # Development Scripts
 
-This directory contains utility scripts for development, deployment, and maintenance of the Agentic RAG platform.
+This directory contains utility scripts for development, deployment, and maintenance of the AI Chatbot platform.
 
 ## Available Scripts
 

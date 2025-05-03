@@ -34,6 +34,30 @@ input, select, textarea, button {
   font-family: inherit;
 }
 
+/* Ensure text is always visible in chunks and embeddings */
+.font-mono {
+  color: #111827 !important; /* Force dark text color */
+  font-weight: 500; /* Medium weight for better visibility */
+}
+
+/* Improve code and pre-formatted blocks */
+pre, code, .bg-gray-50 {
+  color: #111827;
+  border-color: #e5e7eb;
+}
+
+/* Ensure chart text is visible */
+canvas.chartjs-render-monitor {
+  background-color: white;
+}
+
+/* Add contrast to chart containers */
+.chartjs-container {
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  background-color: white;
+}
+
 /* Better focus states for accessibility */
 *:focus {
   outline: 2px solid rgba(59, 130, 246, 0.5);

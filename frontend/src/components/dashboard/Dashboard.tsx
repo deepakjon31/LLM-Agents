@@ -10,6 +10,7 @@ import History from '../history/History';
 import DocumentUpload from '../documents/DocumentUpload';
 import DocumentList from '../documents/DocumentList';
 import DatabaseConnections from '../database/DatabaseConnections';
+import { FaBars, FaTimes, FaDatabase, FaFileAlt, FaHistory, FaFolderOpen, FaServer, FaSignOutAlt, FaChevronRight } from 'react-icons/fa';
 
 type ActiveTab = 'sql-chat' | 'document-chat' | 'history' | 'documents' | 'database-connections';
 
@@ -19,6 +20,7 @@ export default function Dashboard() {
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<ActiveTab>('sql-chat');
   const [documentRefreshTrigger, setDocumentRefreshTrigger] = useState(0);
+  const [sidebarVisible, setSidebarVisible] = useState(true);
 
   useEffect(() => {
     // Check for 'tab' parameter in URL
@@ -27,6 +29,26 @@ export default function Dashboard() {
       setActiveTab(tabParam as ActiveTab);
     }
   }, [searchParams]);
+
+  // Add responsive sidebar handling
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 768) {
+        setSidebarVisible(false);
+      } else {
+        setSidebarVisible(true);
+      }
+    };
+
+    // Set initial state based on screen size
+    handleResize();
+
+    // Add event listener
+    window.addEventListener('resize', handleResize);
+    
+    // Cleanup
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const handleSignOut = async () => {
     await signOut({ redirect: false });
@@ -42,6 +64,12 @@ export default function Dashboard() {
     setActiveTab(tab);
     // Update URL to reflect the current tab
     router.push(`/dashboard?tab=${tab}`, { scroll: false });
+  };
+
+  const toggleSidebar = () => {
+    setSidebarVisible(!sidebarVisible);
+    // Force window resize event to trigger responsiveness in charts or other components
+    window.dispatchEvent(new Event('resize'));
   };
 
   const renderContent = () => {
@@ -68,18 +96,37 @@ export default function Dashboard() {
 
   return (
     <div className="flex h-screen bg-gray-100">
-      <Sidebar activeTab={activeTab} setActiveTab={handleTabChange} onSignOut={handleSignOut} />
+      {/* Sidebar */}
+      <div className={`transition-all duration-300 ease-in-out overflow-hidden ${sidebarVisible ? 'w-48' : 'w-16'} flex-shrink-0`}>
+        <Sidebar 
+          activeTab={activeTab} 
+          setActiveTab={handleTabChange} 
+          onSignOut={handleSignOut}
+          isExpanded={sidebarVisible}
+          onToggleExpand={toggleSidebar}
+        />
+      </div>
       
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         <header className="bg-white shadow-sm z-10">
           <div className="px-6 py-4 flex items-center justify-between">
-            <h1 className="text-2xl font-semibold text-gray-800">
-              {activeTab === 'sql-chat' && 'SQL Database Chat'}
-              {activeTab === 'document-chat' && 'Document Chat'}
-              {activeTab === 'history' && 'Chat History'}
-              {activeTab === 'documents' && 'Manage Documents'}
-              {activeTab === 'database-connections' && 'Database Connections'}
-            </h1>
+            <div className="flex items-center">
+              <button
+                onClick={toggleSidebar}
+                className="p-2 mr-4 rounded-md bg-indigo-50 text-indigo-600 hover:bg-indigo-100 focus:outline-none transition-colors duration-200 md:hidden"
+                aria-label={sidebarVisible ? "Collapse sidebar" : "Expand sidebar"}
+                title={sidebarVisible ? "Collapse sidebar" : "Expand sidebar"}
+              >
+                {sidebarVisible ? <FaTimes size={18} /> : <FaBars size={18} />}
+              </button>
+              <h1 className="text-2xl font-semibold text-gray-800">
+                {activeTab === 'sql-chat' && 'SQL Database Chat'}
+                {activeTab === 'document-chat' && 'Document Chat'}
+                {activeTab === 'history' && 'Chat History'}
+                {activeTab === 'documents' && 'Manage Documents'}
+                {activeTab === 'database-connections' && 'Database Connections'}
+              </h1>
+            </div>
             <div className="flex items-center">
               <span className="text-sm text-gray-600 mr-4">
                 {session?.user?.email || session?.user?.name || 'User'}
@@ -94,7 +141,7 @@ export default function Dashboard() {
           </div>
         </header>
         
-        <main className="flex-1 overflow-auto bg-gray-50 p-6">
+        <main className="flex-1 overflow-auto bg-gray-50 p-4 md:p-6">
           {renderContent()}
         </main>
       </div>

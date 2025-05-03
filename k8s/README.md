@@ -1,6 +1,6 @@
-# Kubernetes Setup for Agentic RAG Platform
+# Kubernetes Setup for AI Chatbot
 
-This directory contains Kubernetes configuration files for deploying the Agentic RAG platform.
+This directory contains Kubernetes configuration files for deploying the AI Chatbot platform.
 
 ## Directory Structure
 

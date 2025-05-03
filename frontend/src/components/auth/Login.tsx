@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { FaKey } from 'react-icons/fa';
 
 export default function Login() {
   const [mobileNumber, setMobileNumber] = useState('');
@@ -46,8 +47,13 @@ export default function Login() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center p-4 sm:p-24">
       <div className="w-full max-w-md p-8 space-y-8 bg-white rounded-lg shadow-md">
+        <div className="flex justify-center mb-6">
+          <div className="p-2 bg-indigo-100 rounded-full">
+            <FaKey className="text-indigo-600 text-2xl" />
+          </div>
+        </div>
         <div>
-          <h1 className="text-3xl font-bold text-center">Agentic RAG</h1>
+          <h1 className="text-3xl font-bold text-center">AI Chatbot</h1>
           <h2 className="mt-6 text-xl font-semibold text-center text-gray-900">Login to your account</h2>
         </div>
         

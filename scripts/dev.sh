@@ -69,7 +69,7 @@ check_k8s_prerequisites() {
 
 # ------ Main Script ------
 
-print_message "$GREEN" "Agentic RAG Development Setup"
+print_message "$GREEN" "AI Chatbot Development Setup"
 echo "=================================================="
 
 # Check prerequisites

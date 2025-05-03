@@ -1,6 +1,6 @@
-# Agentic RAG Platform
+# AI Chatbot
 
-A full-stack application for Agentic RAG with Multi-component Prompting (MCP) for SQL Agents and Document Agents using OpenAI LLM model and Postgres Vector DB.
+A full-stack application for AI Chatbot with Multi-component Prompting (MCP) for SQL Agents and Document Agents using OpenAI LLM model and Postgres Vector DB.
 
 ## Features
 
@@ -83,9 +83,9 @@ A full-stack application for Agentic RAG with Multi-component Prompting (MCP) fo
      POSTGRES_PASSWORD=password
      POSTGRES_SERVER=localhost
      POSTGRES_PORT=5432
-     POSTGRES_DB=agentic_rag
+     POSTGRES_DB=ai_chatbot
      MONGO_CONNECTION_STRING=mongodb://localhost:27017/
-     MONGO_DB_NAME=agentic_rag
+     MONGO_DB_NAME=ai_chatbot
      SECRET_KEY=your-secret-key
      OPENAI_API_KEY=your-openai-api-key
      ```

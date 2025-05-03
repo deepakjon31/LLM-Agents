@@ -6,7 +6,7 @@ import { AppProviders } from "@/providers/AppProviders";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Agentic RAG Application",
+  title: "AI Chatbot",
   description: "Chat with your SQL databases and documents using AI",
 };
 

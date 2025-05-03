@@ -354,7 +354,7 @@ const SQLChat: React.FC = () => {
                   <div className="text-base font-medium leading-relaxed">{message.content}</div>
                   
                   {message.chartData && (
-                    <div className="mt-4 bg-white p-3 rounded">
+                    <div className="mt-4 bg-white p-3 rounded border border-gray-300 shadow-sm">
                       <div className="w-full h-64">
                         <Bar
                           data={message.chartData}
@@ -363,13 +363,34 @@ const SQLChat: React.FC = () => {
                             maintainAspectRatio: false,
                             scales: {
                               y: {
-                                beginAtZero: true
+                                beginAtZero: true,
+                                ticks: {
+                                  color: '#111827',
+                                  font: {
+                                    weight: 500
+                                  }
+                                },
+                                grid: {
+                                  color: 'rgba(0, 0, 0, 0.1)'
+                                }
+                              },
+                              x: {
+                                ticks: {
+                                  color: '#111827',
+                                  font: {
+                                    weight: 500
+                                  }
+                                },
+                                grid: {
+                                  color: 'rgba(0, 0, 0, 0.1)'
+                                }
                               }
                             },
                             plugins: {
                               legend: {
                                 position: 'top',
                                 labels: {
+                                  color: '#111827',
                                   font: {
                                     size: 14,
                                     weight: 'bold'
@@ -379,6 +400,7 @@ const SQLChat: React.FC = () => {
                               title: {
                                 display: true,
                                 text: 'Database Comparison',
+                                color: '#111827',
                                 font: {
                                   size: 16,
                                   weight: 'bold'

@@ -9,6 +9,7 @@ from src.apis.database import router as database_router
 from src.agents.mcp_helpers import mcp_router
 from src.common.db.connection import engine
 from src.common.db.schema import Base
+from typing import Dict
 
 # Load environment variables
 load_dotenv()
@@ -18,8 +19,8 @@ Base.metadata.create_all(bind=engine)
 
 # Initialize FastAPI app
 app = FastAPI(
-    title="Agentic RAG API",
-    description="API for Agentic RAG with SQL and Document Agents using OpenAI LLM and MCP",
+    title="AI Chatbot API",
+    description="API for AI Chatbot with SQL and Document Agents using OpenAI LLM and MCP",
     version="1.0.0"
 )
 
@@ -44,12 +45,11 @@ app.include_router(documents_router)
 app.include_router(database_router)
 app.include_router(mcp_router)
 
-@app.get("/")
+@app.get("/", response_model=Dict[str, str])
 async def root():
     return {
-        "message": "Welcome to Agentic RAG API",
-        "mcp_enabled": True,
-        "mcp_server_url": os.getenv("MCP_SERVER_URL", "http://localhost:8080")
+        "status": "success",
+        "message": "Welcome to AI Chatbot API",
     }
 
 # Start the MCP server in a separate process if configured

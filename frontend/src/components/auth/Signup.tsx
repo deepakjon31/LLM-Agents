@@ -72,7 +72,7 @@ export default function Signup() {
     <div className="flex min-h-screen flex-col items-center justify-center p-4 sm:p-24">
       <div className="w-full max-w-md p-8 space-y-8 bg-white rounded-lg shadow-md">
         <div>
-          <h1 className="text-3xl font-bold text-center">Agentic RAG</h1>
+          <h1 className="text-3xl font-bold text-center">AI Chatbot</h1>
           <h2 className="mt-6 text-xl font-semibold text-center text-gray-900">Create a new account</h2>
         </div>
         

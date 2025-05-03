@@ -322,15 +322,15 @@ const DocumentDetail: React.FC<DocumentDetailProps> = ({ documentId, onClose }) 
                       <div className="p-4">
                         <div className="mb-4">
                           <h5 className="text-sm font-medium text-gray-700 mb-2">Text Content:</h5>
-                          <div className="bg-gray-50 p-3 rounded text-sm font-mono whitespace-pre-wrap">
+                          <div className="bg-white p-3 rounded text-sm font-mono whitespace-pre-wrap text-gray-900 border border-gray-300 shadow-sm">
                             {chunk.text}
                           </div>
                         </div>
                         
                         <div>
                           <h5 className="text-sm font-medium text-gray-700 mb-2">Embedding Vector (truncated):</h5>
-                          <div className="bg-gray-50 p-3 rounded text-xs font-mono overflow-x-auto">
-                            [{chunk.embedding.join(', ')}]
+                          <div className="bg-white p-3 rounded text-xs font-mono overflow-x-auto text-gray-900 border border-gray-300 shadow-sm">
+                            [{chunk.embedding.slice(0, 10).join(', ')}{chunk.embedding.length > 10 ? ', ...' : ''}]
                           </div>
                           <p className="text-xs text-gray-500 mt-1">
                             Dimensions: {Array.isArray(chunk.embedding) ? chunk.embedding.length : 'Unknown'}
