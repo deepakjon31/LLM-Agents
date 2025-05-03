@@ -1,9 +1,9 @@
 'use client';
 
 import React from 'react';
-import { FaDatabase, FaFileAlt, FaHistory, FaFolderOpen, FaSignOutAlt, FaServer, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
+import { FaDatabase, FaFileAlt, FaHistory, FaFolderOpen, FaSignOutAlt, FaServer, FaChevronLeft, FaChevronRight, FaComments } from 'react-icons/fa';
 
-type ActiveTab = 'sql-chat' | 'document-chat' | 'history' | 'documents' | 'database-connections';
+type ActiveTab = 'chat' | 'history' | 'documents' | 'database-connections';
 
 interface SidebarProps {
   activeTab: ActiveTab;
@@ -21,8 +21,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onToggleExpand 
 }) => {
   const navItems = [
-    { id: 'sql-chat', label: 'SQL Chat', icon: <FaDatabase /> },
-    { id: 'document-chat', label: 'Document Chat', icon: <FaFileAlt /> },
+    { id: 'chat', label: 'AI Chatbot', icon: <FaComments /> },
     { id: 'history', label: 'Chat History', icon: <FaHistory /> },
     { id: 'documents', label: 'Manage Documents', icon: <FaFolderOpen /> },
     { id: 'database-connections', label: 'Database Connections', icon: <FaServer /> },

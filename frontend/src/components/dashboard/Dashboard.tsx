@@ -4,44 +4,53 @@ import { useState, useEffect } from 'react';
 import { signOut, useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Sidebar from './Sidebar';
-import SQLChat from '../chat/SQLChat';
-import DocumentChat from '../chat/DocumentChat';
+import UnifiedChat from '../chat/UnifiedChat';
 import History from '../history/History';
 import DocumentUpload from '../documents/DocumentUpload';
 import DocumentList from '../documents/DocumentList';
 import DatabaseConnections from '../database/DatabaseConnections';
 import { FaBars, FaTimes, FaDatabase, FaFileAlt, FaHistory, FaFolderOpen, FaServer, FaSignOutAlt, FaChevronRight } from 'react-icons/fa';
 
-type ActiveTab = 'sql-chat' | 'document-chat' | 'history' | 'documents' | 'database-connections';
+type ActiveTab = 'chat' | 'history' | 'documents' | 'database-connections';
 
 export default function Dashboard() {
   const { data: session } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [activeTab, setActiveTab] = useState<ActiveTab>('sql-chat');
+  const [activeTab, setActiveTab] = useState<ActiveTab>('chat');
   const [documentRefreshTrigger, setDocumentRefreshTrigger] = useState(0);
-  const [sidebarVisible, setSidebarVisible] = useState(true);
+  const [sidebarVisible, setSidebarVisible] = useState(() => {
+    // Initialize from localStorage if available, otherwise default to true
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('sidebarVisible');
+      return saved !== null ? saved === 'true' : true;
+    }
+    return true;
+  });
 
   useEffect(() => {
     // Check for 'tab' parameter in URL
     const tabParam = searchParams.get('tab');
-    if (tabParam && ['sql-chat', 'document-chat', 'history', 'documents', 'database-connections'].includes(tabParam)) {
+    if (tabParam && ['chat', 'history', 'documents', 'database-connections'].includes(tabParam)) {
       setActiveTab(tabParam as ActiveTab);
+    } else if (tabParam && ['sql-chat', 'document-chat'].includes(tabParam)) {
+      // Handle legacy URLs
+      setActiveTab('chat');
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    // Save sidebar state to localStorage whenever it changes
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('sidebarVisible', sidebarVisible.toString());
+    }
+  }, [sidebarVisible]);
 
   // Add responsive sidebar handling
   useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth < 768) {
-        setSidebarVisible(false);
-      } else {
-        setSidebarVisible(true);
-      }
+      // No actions needed here, just keeping the event listener
     };
-
-    // Set initial state based on screen size
-    handleResize();
 
     // Add event listener
     window.addEventListener('resize', handleResize);
@@ -67,17 +76,16 @@ export default function Dashboard() {
   };
 
   const toggleSidebar = () => {
-    setSidebarVisible(!sidebarVisible);
-    // Force window resize event to trigger responsiveness in charts or other components
-    window.dispatchEvent(new Event('resize'));
+    const newState = !sidebarVisible;
+    setSidebarVisible(newState);
+    console.log('Toggling sidebar:', sidebarVisible, '->', newState);
+    // No need to dispatch resize event as it could cause an infinite loop
   };
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'sql-chat':
-        return <SQLChat />;
-      case 'document-chat':
-        return <DocumentChat />;
+      case 'chat':
+        return <UnifiedChat />;
       case 'history':
         return <History />;
       case 'documents':
@@ -90,7 +98,7 @@ export default function Dashboard() {
       case 'database-connections':
         return <DatabaseConnections />;
       default:
-        return <SQLChat />;
+        return <UnifiedChat />;
     }
   };
 
@@ -113,15 +121,14 @@ export default function Dashboard() {
             <div className="flex items-center">
               <button
                 onClick={toggleSidebar}
-                className="p-2 mr-4 rounded-md bg-indigo-50 text-indigo-600 hover:bg-indigo-100 focus:outline-none transition-colors duration-200 md:hidden"
+                className="p-2 mr-4 rounded-md bg-indigo-50 text-indigo-600 hover:bg-indigo-100 focus:outline-none transition-colors duration-200"
                 aria-label={sidebarVisible ? "Collapse sidebar" : "Expand sidebar"}
                 title={sidebarVisible ? "Collapse sidebar" : "Expand sidebar"}
               >
                 {sidebarVisible ? <FaTimes size={18} /> : <FaBars size={18} />}
               </button>
               <h1 className="text-2xl font-semibold text-gray-800">
-                {activeTab === 'sql-chat' && 'SQL Database Chat'}
-                {activeTab === 'document-chat' && 'Document Chat'}
+                {activeTab === 'chat' && 'AI Chatbot'}
                 {activeTab === 'history' && 'Chat History'}
                 {activeTab === 'documents' && 'Manage Documents'}
                 {activeTab === 'database-connections' && 'Database Connections'}
