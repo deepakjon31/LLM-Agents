@@ -7,11 +7,13 @@ import json
 import asyncio
 import uuid
 from datetime import datetime
+from mcp.server.fastmcp import FastMCP
 
 from src.agents.sql_agent import SQLAgent
 from src.agents.document_processor import DocumentProcessor
 
-app = FastAPI()
+# Create a separate FastAPI app for MCP
+mcp_app = FastAPI()
 
 # Create an MCP server for backend agents
 mcp = FastMCP("AgentMCP")
@@ -163,18 +165,31 @@ def document_analysis_prompt(file_path: str) -> str:
     3. Potential insights or action items
     """
 
+# Mount the MCP server to the FastAPI app
+mcp_app.mount("/", mcp.sse_app())
+
 # Function to run the server
-def run_server(host="0.0.0.0", port=8080):
-    """Run the MCP server."""
+def run_server():
+    """Set up and return the MCP app."""
+    print("Setting up MCP Agent Server...")
+    
     # Set the OpenAI API key if not already set
     if "OPENAI_API_KEY" not in os.environ:
         from dotenv import load_dotenv
         load_dotenv()
     
-    # Run the MCP server
-    print(f"Starting MCP Agent Server on http://{host}:{port}")
-    mcp.run(host=host, port=port)
+    # Configure CORS for MCP app
+    mcp_app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    
+    return mcp_app
 
 # Start the server if this file is run directly
 if __name__ == "__main__":
-    run_server() 
+    import uvicorn
+    uvicorn.run(run_server(), host="0.0.0.0", port=8080) 

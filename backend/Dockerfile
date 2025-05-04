@@ -1,4 +1,4 @@
-FROM python:3.11-slim as builder
+FROM python:3.12-slim as builder
 
 WORKDIR /app
 
@@ -14,16 +14,16 @@ COPY requirements.txt .
 # Install dependencies into a virtual environment
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+RUN pip install --upgrade pip && \
+    pip install -r requirements.txt
 
-FROM python:3.11-slim
+# FROM python:3.12-slim
 
-WORKDIR /app
+# WORKDIR /app
 
-# Copy virtual environment from builder stage
-COPY --from=builder /opt/venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
+# # Copy virtual environment from builder stage
+# COPY --from=builder /opt/venv /opt/venv
+# ENV PATH="/opt/venv/bin:$PATH"
 
 # Copy application code
 COPY . .

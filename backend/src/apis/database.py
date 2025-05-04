@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from typing import List, Dict, Any, Optional
 from src.common.auth.jwt_bearer import JWTBearer
 from src.agents.sql_agent import SQLAgent

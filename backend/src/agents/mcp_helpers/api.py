@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 import os
 import json
 from src.agents.mcp_helpers.client import AgentMCPClient
-from src.common.auth import get_current_user
+from src.common.dependencies import get_current_user
 from src.agents.sql_agent import SQLAgent
 from src.agents.document_processor import DocumentProcessor
 

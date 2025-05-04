@@ -2,11 +2,12 @@
 Entry point for running the MCP server directly.
 
 Usage:
-    python -m backend.src.agents.mcp_helpers [--host HOST] [--port PORT]
+    python -m src.agents.mcp_helpers
 """
 
 import argparse
 import os
+import uvicorn
 from dotenv import load_dotenv
 from .server import run_server
 
@@ -24,8 +25,12 @@ def main():
     if "OPENAI_API_KEY" not in os.environ:
         print("Warning: OPENAI_API_KEY environment variable not set")
     
-    # Run the server
-    run_server(host=args.host, port=args.port)
+    # Get the FastAPI app from run_server
+    app = run_server()
+    
+    # Start the uvicorn server
+    print(f"Starting MCP server on http://{args.host}:{args.port}")
+    uvicorn.run(app, host=args.host, port=args.port)
 
 if __name__ == "__main__":
     main() 

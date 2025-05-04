@@ -52,8 +52,8 @@ services:
     image: agentic-rag/backend:dev
     ports:
       - "8000:8000"
+      - "8080:8080"
     volumes:
-      - ./backend:/app
       - backend_cache:/root/.cache
     depends_on:
       postgres:
@@ -70,6 +70,9 @@ services:
       - MONGO_DB_NAME=agentic_rag
       - SECRET_KEY=development_secret_key
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - SKIP_DB=true
+      - START_MCP_SERVER=true
+    command: sh -c "pip install psycopg2-binary && uvicorn src.main:app --host 0.0.0.0 --port 8000"
     restart: unless-stopped
     deploy:
       resources:
@@ -92,8 +95,6 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - ./frontend:/app
-      - /app/node_modules
       - frontend_cache:/root/.npm
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:8000

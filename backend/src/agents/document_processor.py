@@ -1,6 +1,7 @@
 from typing import List, Dict, Any
 import PyPDF2
 import docx
+from docx import Document
 import pandas as pd
 import numpy as np
 from openai import OpenAI
@@ -94,7 +95,7 @@ class DocumentProcessor(BaseAgent):
 
     def _process_docx(self, file_path: str) -> str:
         """Process DOCX file and extract text."""
-        doc = docx.Document(file_path)
+        doc = Document(file_path)
         return "\n".join([paragraph.text for paragraph in doc.paragraphs])
 
     def _process_txt(self, file_path: str) -> str:
