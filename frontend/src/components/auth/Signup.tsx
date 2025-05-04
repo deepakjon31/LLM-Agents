@@ -11,6 +11,7 @@ export default function Signup() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
+  const [debugInfo, setDebugInfo] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
@@ -26,6 +27,12 @@ export default function Signup() {
       setError('Passwords do not match');
       return;
     }
+    
+    // Validate mobile number format (simple check)
+    if (!/^\d{7,15}$/.test(mobileNumber)) {
+      setError('Please enter a valid mobile number (7-15 digits)');
+      return;
+    }
 
     // Validate email if provided
     if (email && !email.includes('@')) {
@@ -35,34 +42,124 @@ export default function Signup() {
     
     setIsLoading(true);
     setError('');
+    setDebugInfo(null);
+    
+    // For Docker networking, backend service name works better than localhost
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://backend:8000';
+    console.log(`Using API URL: ${apiUrl}`);
     
     try {
-      const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/auth/signup`, {
+      console.log(`Signing up user with mobile: ${mobileNumber}, email: ${email || 'not provided'}`);
+      
+      const payload = {
         mobile_number: mobileNumber,
         password: password,
-        email: email || undefined,
-      });
+        ...(email ? { email } : {})
+      };
       
-      if (response.status === 200) {
-        router.push('/login');
+      console.log('Signup payload:', payload);
+      setDebugInfo(`Sending request to ${apiUrl}/auth/signup with data: ${JSON.stringify(payload, null, 2)}`);
+      
+      const response = await axios.post(`${apiUrl}/auth/signup`, payload);
+      
+      console.log('Signup response:', response);
+      setDebugInfo(prev => `${prev || ''}\n\nResponse: ${JSON.stringify(response.data, null, 2)}`);
+      
+      if (response.status === 200 || response.status === 201) {
+        setError('');
+        setDebugInfo(prev => `${prev || ''}\n\nSuccess! Redirecting to login page...`);
+        setTimeout(() => {
+          router.push('/login');
+        }, 1500);
       }
     } catch (error: any) {
       console.error('Signup error:', error);
       if (error.response) {
         // The request was made and the server responded with a status code
         // that falls out of the range of 2xx
-        if (error.response.data && error.response.data.detail) {
-          setError(error.response.data.detail);
+        const responseData = error.response.data;
+        setDebugInfo(JSON.stringify({
+          status: error.response.status,
+          statusText: error.response.statusText,
+          data: responseData
+        }, null, 2));
+        
+        if (responseData && responseData.detail) {
+          setError(responseData.detail);
         } else {
           setError(`Error: ${error.response.status} - ${error.response.statusText}`);
         }
       } else if (error.request) {
         // The request was made but no response was received
         setError('No response received from server. Please check your connection.');
+        setDebugInfo(JSON.stringify(error.request, null, 2));
       } else {
         // Something happened in setting up the request that triggered an Error
         setError(`Error: ${error.message}`);
+        setDebugInfo(error.stack || 'No stack trace available');
       }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // For testing direct API access
+  const testDirectApiSignup = async () => {
+    try {
+      setIsLoading(true);
+      setError('');
+      setDebugInfo('Testing direct API call for signup...');
+      
+      // Try to access backend directly
+      // For Docker networking, backend service name works better than localhost
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://backend:8000';
+      setDebugInfo(`Using API URL: ${apiUrl}`);
+      
+      // Prepare the data
+      const formData = {
+        mobile_number: mobileNumber,
+        password: password,
+        ...(email ? { email } : {})
+      };
+      
+      setDebugInfo(prev => `${prev}\n\nSending request with data: ${JSON.stringify(formData, null, 2)}`);
+      
+      // Make the request
+      const response = await fetch(`${apiUrl}/auth/signup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+      
+      const data = await response.json();
+      setDebugInfo(prev => `${prev}\n\nResponse status: ${response.status}\n${JSON.stringify(data, null, 2)}`);
+      
+      if (response.ok) {
+        setError('');
+        setDebugInfo(prev => `${prev}\n\nDirect API call successful! User created.`);
+      } else {
+        setError(`Direct API call failed: ${data.detail || 'Unknown error'}`);
+      }
+    } catch (error: any) {
+      console.error('Direct API error:', error);
+      setError('Direct API call error');
+      
+      let errorDetails = 'Unknown error';
+      if (error instanceof Error) {
+        errorDetails = error.message;
+        if ('response' in error && error.response) {
+          try {
+            // @ts-ignore - We're dynamically checking for response property
+            errorDetails += `\nStatus: ${error.response.status}\nData: ${JSON.stringify(error.response.data, null, 2)}`;
+          } catch (e) {
+            // Ignore serialization errors
+          }
+        }
+      }
+      
+      setDebugInfo(`Error: ${errorDetails}`);
     } finally {
       setIsLoading(false);
     }
@@ -96,7 +193,7 @@ export default function Signup() {
                 value={mobileNumber}
                 onChange={(e) => setMobileNumber(e.target.value)}
                 className="relative block w-full px-3 py-2 mt-1 text-gray-900 placeholder-gray-500 border border-gray-300 rounded-md appearance-none focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="+1234567890"
+                placeholder="8050518293"
               />
             </div>
             
@@ -127,8 +224,11 @@ export default function Signup() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="relative block w-full px-3 py-2 mt-1 text-gray-900 placeholder-gray-500 border border-gray-300 rounded-md appearance-none focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="********"
+                placeholder="Test123"
               />
+              <p className="mt-1 text-xs text-gray-500">
+                Password must contain at least 8 characters, one uppercase letter, and one number
+              </p>
             </div>
             
             <div>
@@ -143,18 +243,27 @@ export default function Signup() {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 className="relative block w-full px-3 py-2 mt-1 text-gray-900 placeholder-gray-500 border border-gray-300 rounded-md appearance-none focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="********"
+                placeholder="Test123"
               />
             </div>
           </div>
 
-          <div>
+          <div className="flex flex-col space-y-3">
             <button
               type="submit"
               disabled={isLoading}
               className="relative flex justify-center w-full px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md group hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-400"
             >
               {isLoading ? 'Loading...' : 'Sign up'}
+            </button>
+            
+            <button
+              type="button"
+              onClick={testDirectApiSignup}
+              disabled={isLoading}
+              className="relative flex justify-center w-full px-4 py-2 text-sm font-medium text-indigo-600 bg-white border border-indigo-300 rounded-md group hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-100"
+            >
+              Test Direct API Signup
             </button>
           </div>
         </form>
@@ -167,6 +276,12 @@ export default function Signup() {
             </Link>
           </p>
         </div>
+        
+        {debugInfo && (
+          <div className="mt-4 p-3 bg-gray-100 rounded text-xs overflow-auto max-h-64">
+            <pre>{debugInfo}</pre>
+          </div>
+        )}
       </div>
     </div>
   );

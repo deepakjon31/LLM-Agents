@@ -4,22 +4,44 @@ from sqlalchemy.orm import sessionmaker
 from pymongo import MongoClient
 import os
 from dotenv import load_dotenv
+import logging
 
+# Load environment variables
 load_dotenv()
 
-# PostgreSQL connection
-POSTGRES_USER = os.getenv("POSTGRES_USER", "postgres")
-POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "password")
-POSTGRES_SERVER = os.getenv("POSTGRES_SERVER", "localhost")
-POSTGRES_PORT = os.getenv("POSTGRES_PORT", "5432")
-POSTGRES_DB = os.getenv("POSTGRES_DB", "agentic_rag")
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-SQLALCHEMY_DATABASE_URL = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_SERVER}:{POSTGRES_PORT}/{POSTGRES_DB}"
+def get_db_url():
+    """Get the database URL from environment variables"""
+    postgres_user = os.getenv("POSTGRES_USER", "postgres")
+    postgres_password = os.getenv("POSTGRES_PASSWORD", "Password1")
+    postgres_server = os.getenv("POSTGRES_SERVER", "localhost")
+    postgres_port = os.getenv("POSTGRES_PORT", "5432")
+    postgres_db = os.getenv("POSTGRES_DB", "agentic_rag")
+    
+    # Create database URL
+    return f"postgresql://{postgres_user}:{postgres_password}@{postgres_server}:{postgres_port}/{postgres_db}"
 
-engine = create_engine(SQLALCHEMY_DATABASE_URL)
+# Create database URL
+SQLALCHEMY_DATABASE_URL = get_db_url()
+
+# Create engine
+try:
+    engine = create_engine(SQLALCHEMY_DATABASE_URL)
+    logger.info("Database engine created successfully")
+except Exception as e:
+    logger.error(f"Error creating database engine: {e}")
+    raise
+
+# Create session maker
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# Create base class
 Base = declarative_base()
 
+# Dependency
 def get_db():
     db = SessionLocal()
     try:
