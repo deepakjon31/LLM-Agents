@@ -69,7 +69,7 @@ export default function Signup() {
         setError('');
         setDebugInfo(prev => `${prev || ''}\n\nSuccess! Redirecting to login page...`);
         setTimeout(() => {
-          router.push('/login');
+        router.push('/login');
         }, 1500);
       }
     } catch (error: any) {

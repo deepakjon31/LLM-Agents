@@ -2,6 +2,9 @@ import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import axios from "axios";
 
+// Log to confirm this file is loaded with the correct version
+console.log("[NextAuth] Initializing auth route handler with backend-direct URL");
+
 const handler = NextAuth({
   providers: [
     CredentialsProvider({
@@ -17,23 +20,24 @@ const handler = NextAuth({
         }
 
         try {
-          console.log(`Login attempt with: ${credentials.mobileNumber}`);
+          console.log(`Login attempt with mobile number: ${credentials.mobileNumber}`);
           
-          // Standard authentication with backend API
-          // For Docker networking, backend service name works better than localhost
-          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://backend:8000';
-          console.log(`Using API URL: ${apiUrl}`);
+          // IMPORTANT: For Docker networking, we must use 'backend' service name, not localhost
+          // NextAuth runs server-side, so process.env.NEXT_PUBLIC_API_URL will resolve to the client-side URL
+          // which won't work from within the container
+          const apiUrl = 'http://backend:8000';
+          console.log(`Using fixed container API URL: ${apiUrl}`);
 
           // Create form data with proper format expected by FastAPI OAuth2
           const formData = new URLSearchParams();
-          formData.append('username', credentials.mobileNumber);
+          formData.append('username', credentials.mobileNumber); // Map mobileNumber to username for backend
           formData.append('password', credentials.password);
           
           console.log(`Sending login request to ${apiUrl}/auth/login`);
           console.log(`Form data: username=${credentials.mobileNumber}, password=******`);
           
           try {
-            // First try with form-urlencoded format
+            // First try with form-urlencoded format (what FastAPI's OAuth2PasswordRequestForm expects)
             const response = await axios.post(
               `${apiUrl}/auth/login`,
               formData.toString(),
@@ -79,9 +83,11 @@ const handler = NextAuth({
             
             // Fallback to JSON format as some FastAPI implementations might expect this
             try {
+              console.log("Trying JSON format as fallback");
               const jsonResponse = await axios.post(
                 `${apiUrl}/auth/login`,
                 {
+                  // Important: Use username here, not mobileNumber
                   username: credentials.mobileNumber,
                   password: credentials.password,
                 },
@@ -122,7 +128,7 @@ const handler = NextAuth({
           if (error.response) {
             console.error(`Status: ${error.response.status}, Data:`, error.response.data);
           }
-          return null;
+          throw error; // Re-throw the error to ensure it's passed back to the client
         }
       },
     }),

@@ -29,7 +29,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
 def verify_password(plain_password, hashed_password):
     try:
         logger.info(f"Attempting password verification with bcrypt")
-        return pwd_context.verify(plain_password, hashed_password)
+    return pwd_context.verify(plain_password, hashed_password)
     except Exception as e:
         logger.error(f"Error in password verification: {str(e)}")
         # Direct fallback comparison for test users
@@ -47,7 +47,7 @@ def verify_password(plain_password, hashed_password):
 
 def get_password_hash(password):
     try:
-        return pwd_context.hash(password)
+    return pwd_context.hash(password)
     except Exception as e:
         logger.error(f"Error in password hashing: {str(e)}")
         # Return a known good hash for test123 as fallback
@@ -97,7 +97,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode.update({"exp": expire})
     
     try:
-        encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
         logger.info(f"JWT token created successfully")
         return encoded_jwt
     except Exception as e:
@@ -123,11 +123,11 @@ def signup(user: UserCreate, db: Session = Depends(get_db)):
     )
     
     try:
-        db.add(db_user)
-        db.commit()
-        db.refresh(db_user)
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
         logger.info(f"User created successfully with id: {db_user.id}")
-        return db_user
+    return db_user
     except Exception as e:
         logger.error(f"Error creating user: {str(e)}")
         db.rollback()
@@ -145,26 +145,26 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     # Standard authentication
     try:
         logger.info(f"Attempting to authenticate user: {username}")
-        user = authenticate_user(db, username, password)
-        if not user:
+    user = authenticate_user(db, username, password)
+    if not user:
             logger.warning(f"Authentication failed for username: {username}")
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Incorrect mobile number or password",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-        
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect mobile number or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
         logger.info(f"Authentication successful for user: {user.id} - {user.mobile_number}")
         
-        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         logger.info(f"Creating access token for user: {user.id} with expiry: {access_token_expires}")
-        access_token = create_access_token(
+    access_token = create_access_token(
             data={"sub": str(user.id)}, # Ensure sub is string
-            expires_delta=access_token_expires
-        )
-        
+        expires_delta=access_token_expires
+    )
+    
         logger.info(f"Token generated successfully for user: {user.id}")
-        return {"access_token": access_token, "token_type": "bearer"}
+    return {"access_token": access_token, "token_type": "bearer"}
     except Exception as e:
         logger.error(f"Error during login: {str(e)}")
         logger.error(f"Login exception details: {type(e).__name__}", exc_info=True)
@@ -196,8 +196,8 @@ def update_user(
     current_user.updated_at = datetime.utcnow()
     
     try:
-        db.commit()
-        db.refresh(current_user)
+    db.commit()
+    db.refresh(current_user)
         logger.info(f"User profile updated successfully")
         return current_user
     except Exception as e:

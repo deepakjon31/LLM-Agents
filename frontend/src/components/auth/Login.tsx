@@ -30,8 +30,9 @@ export default function Login() {
     
     setIsLoading(true);
     setError('');
-    // For Docker networking, backend service name works better than localhost
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://backend:8000';
+    
+    // In browser context, we use NEXT_PUBLIC_API_URL which points to the publicly accessible URL
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
     setDebugInfo(`Login attempt for: ${mobileNumber}\nAPI URL: ${apiUrl}`);
     
     console.log(`Login attempt with: ${mobileNumber}`);
@@ -51,12 +52,23 @@ export default function Login() {
       if (result?.error) {
         setError(result.error);
         console.error('Login error:', result.error);
+        
+        // Add more helpful message for common errors
+        if (result.error.includes("mobile number") || result.error.includes("password")) {
+          setDebugInfo(prev => `${prev}\n\nLogin failed: Invalid credentials. Please check your mobile number and password.`);
+        } else {
+          setDebugInfo(prev => `${prev}\n\nLogin failed with error: ${result.error}`);
+        }
+        
+        // Suggest using the test API button
+        setDebugInfo(prev => `${prev}\n\nTry using the "Test Direct API" button to diagnose the issue.`);
       } else if (result?.ok) {
         console.log('Login successful, redirecting to dashboard');
         setDebugInfo(prev => `${prev}\n\nLogin successful! Redirecting...`);
         router.push('/dashboard');
       } else {
         setError('Login failed with unknown error');
+        setDebugInfo(prev => `${prev}\n\nUnknown login error. Try using the "Test Direct API" button.`);
       }
     } catch (error) {
       console.error('Exception during login:', error);
@@ -74,9 +86,9 @@ export default function Login() {
       setError('');
       setDebugInfo('Testing direct API call...');
       
-      // Try to access backend directly
-      // In Docker environment, using 'backend' service name is more reliable than localhost
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://backend:8000';
+      // In browser context, we use the NEXT_PUBLIC_API_URL which should point to the publicly 
+      // accessible URL for the backend (e.g., http://localhost:8000)
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
       setDebugInfo(`Using API URL: ${apiUrl}`);
       
       // Create FormData object
@@ -101,6 +113,7 @@ export default function Login() {
       if (response.ok && data.access_token) {
         setError('');
         setDebugInfo(prev => `${prev}\n\nDirect API call successful! Token received.`);
+        setDebugInfo(prev => `${prev}\n\nThis confirms your credentials are correct.`);
       } else {
         setError(`Direct API call failed: ${data.detail || 'Unknown error'}`);
       }

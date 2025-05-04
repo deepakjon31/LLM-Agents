@@ -20,7 +20,7 @@ def get_db_url():
     postgres_server = os.getenv("POSTGRES_SERVER", "localhost")
     postgres_port = os.getenv("POSTGRES_PORT", "5432")
     postgres_db = os.getenv("POSTGRES_DB", "agentic_rag")
-    
+
     # Create database URL
     return f"postgresql://{postgres_user}:{postgres_password}@{postgres_server}:{postgres_port}/{postgres_db}"
 
@@ -29,7 +29,7 @@ SQLALCHEMY_DATABASE_URL = get_db_url()
 
 # Create engine
 try:
-    engine = create_engine(SQLALCHEMY_DATABASE_URL)
+engine = create_engine(SQLALCHEMY_DATABASE_URL)
     logger.info("Database engine created successfully")
 except Exception as e:
     logger.error(f"Error creating database engine: {e}")

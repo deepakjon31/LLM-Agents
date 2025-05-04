@@ -54,7 +54,7 @@ services:
       - "8000:8000"
       - "8080:8080"
     volumes:
-      - backend_cache:/root/.cache
+      - /Users/deepak/Desktop/nexai/github/LLM-Agents/backend:/app/backend
     depends_on:
       postgres:
         condition: service_healthy
@@ -95,7 +95,7 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - frontend_cache:/root/.npm
+      - /Users/deepak/Desktop/nexai/github/LLM-Agents/frontend:/app/frontend
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:8000
       - NEXTAUTH_URL=http://localhost:3000

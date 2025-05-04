@@ -23,8 +23,8 @@ load_dotenv()
 skip_db = os.getenv("SKIP_DB", "").lower() in ("true", "1", "yes")
 if not skip_db:
     try:
-        # Create database tables
-        Base.metadata.create_all(bind=engine)
+# Create database tables
+Base.metadata.create_all(bind=engine)
         print("✅ Database tables created/verified successfully")
     except Exception as e:
         print(f"⚠️ Database connection error: {e}")
