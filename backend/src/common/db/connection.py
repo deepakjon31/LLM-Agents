@@ -29,7 +29,7 @@ SQLALCHEMY_DATABASE_URL = get_db_url()
 
 # Create engine
 try:
-engine = create_engine(SQLALCHEMY_DATABASE_URL)
+    engine = create_engine(SQLALCHEMY_DATABASE_URL)
     logger.info("Database engine created successfully")
 except Exception as e:
     logger.error(f"Error creating database engine: {e}")

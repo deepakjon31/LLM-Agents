@@ -6,6 +6,7 @@ from src.apis.auth import router as auth_router
 from src.apis.profile import router as profile_router
 from src.apis.documents import router as documents_router
 from src.apis.database import router as database_router
+from src.apis.agents import router as agents_router
 # Fix the router name to match what's defined in api.py
 from src.agents.mcp_helpers.api import mcp_router
 from src.common.db.connection import engine
@@ -23,8 +24,8 @@ load_dotenv()
 skip_db = os.getenv("SKIP_DB", "").lower() in ("true", "1", "yes")
 if not skip_db:
     try:
-# Create database tables
-Base.metadata.create_all(bind=engine)
+        # Create database tables properly indented
+        Base.metadata.create_all(bind=engine)
         print("✅ Database tables created/verified successfully")
     except Exception as e:
         print(f"⚠️ Database connection error: {e}")
@@ -61,6 +62,7 @@ app.include_router(auth_router)
 app.include_router(profile_router)
 app.include_router(documents_router)
 app.include_router(database_router)
+app.include_router(agents_router)
 app.include_router(mcp_router)
 
 @app.get("/", response_model=Dict[str, str])

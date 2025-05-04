@@ -51,7 +51,27 @@ const DatabaseConnections: React.FC = () => {
 
   const handleCreateConnection = async (newConnection: any) => {
     try {
-      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/database/connections`, newConnection, {
+      // Build connection string based on database type
+      let connectionString = "";
+      if (newConnection.type === "postgresql") {
+        connectionString = `postgresql://${newConnection.username}:${newConnection.password}@${newConnection.host}:${newConnection.port}/${newConnection.database}`;
+      } else if (newConnection.type === "mysql") {
+        connectionString = `mysql+pymysql://${newConnection.username}:${newConnection.password}@${newConnection.host}:${newConnection.port}/${newConnection.database}`;
+      } else if (newConnection.type === "sqlite") {
+        connectionString = `sqlite:///${newConnection.database}`;
+      } else if (newConnection.type === "mongodb") {
+        connectionString = `mongodb://${newConnection.username}:${newConnection.password}@${newConnection.host}:${newConnection.port}/${newConnection.database}`;
+      } 
+      // Add other database types as needed
+      
+      // Create the payload for the backend
+      const connectionData = {
+        name: newConnection.name,
+        connection_string: connectionString
+      };
+      
+      // Send to the correct endpoint
+      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/database/connect`, connectionData, {
         headers: {
           'Authorization': `Bearer ${(session as any)?.accessToken || ''}`
         }
@@ -102,9 +122,9 @@ const DatabaseConnections: React.FC = () => {
 
   const handleTestConnection = async (id: string) => {
     try {
-      const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/database/connections/${id}/test`,
-        {},
+      // Test connection by trying to get the tables
+      const response = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/database/tables?connection_id=${id}`,
         {
           headers: {
             'Authorization': `Bearer ${(session as any)?.accessToken || ''}`
@@ -115,8 +135,8 @@ const DatabaseConnections: React.FC = () => {
       setTestResults({
         ...testResults,
         [id]: { 
-          success: response.data.status === 'success', 
-          message: response.data.message 
+          success: true, 
+          message: `Successfully connected. Found ${response.data.length} tables.` 
         }
       });
       

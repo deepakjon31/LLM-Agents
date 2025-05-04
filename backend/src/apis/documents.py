@@ -12,6 +12,13 @@ import shutil
 import uuid
 from pathlib import Path
 from src.common.auth.jwt_bearer import JWTBearer
+import logging
+from src.common.utils import serialize_mongo_id
+from bson.objectid import ObjectId
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/documents", tags=["Documents"])
 
@@ -36,7 +43,8 @@ async def upload_document(
         chunks = processor.process_document(str(file_path))
         
         # Store in database
-        db = get_db()
+        from src.common.db.connection import mongo_db
+        
         document = {
             "user_id": current_user["user_id"],
             "filename": file.filename,
@@ -46,14 +54,14 @@ async def upload_document(
             "created_at": datetime.utcnow()
         }
         
-        # Insert document metadata
-        result = await db.documents.insert_one(document)
+        # Insert document metadata - using synchronous approach
+        result = mongo_db.documents.insert_one(document)
         document_id = result.inserted_id
         
-        # Insert chunks with embeddings
+        # Insert chunks with embeddings - synchronous approach
         for chunk in chunks:
             chunk["document_id"] = document_id
-            await db.document_chunks.insert_one(chunk)
+            mongo_db.document_chunks.insert_one(chunk)
         
         return {
             "document_id": str(document_id),
@@ -69,19 +77,24 @@ async def list_documents(
     current_user: dict = Depends(JWTBearer())
 ):
     """List all documents for the current user."""
-    db = get_db()
-    documents = await db.documents.find(
-        {"user_id": current_user["user_id"]},
-        {"_id": 1, "filename": 1, "file_type": 1, "chunk_count": 1, "created_at": 1}
-    ).to_list(length=None)
-    
-    return [{
-        "id": str(doc["_id"]),
-        "filename": doc["filename"],
-        "file_type": doc["file_type"],
-        "chunk_count": doc["chunk_count"],
-        "created_at": doc["created_at"]
-    } for doc in documents]
+    try:
+        # Get MongoDB database connection
+        from src.common.db.connection import mongo_db
+        
+        # Use MongoDB collection directly - synchronous approach
+        logger.info(f"Fetching documents for user: {current_user['user_id']}")
+        documents = list(mongo_db.documents.find(
+            {"user_id": current_user["user_id"]},
+            {"_id": 1, "filename": 1, "file_type": 1, "chunk_count": 1, "created_at": 1}
+        ))
+        logger.info(f"Found {len(documents)} documents for user {current_user['user_id']}")
+        
+        # Use the utility function to serialize ObjectId
+        return serialize_mongo_id(documents)
+        
+    except Exception as e:
+        logger.error(f"Error in list_documents: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch documents: {str(e)}")
 
 @router.delete("/{document_id}")
 async def delete_document(
@@ -89,28 +102,33 @@ async def delete_document(
     current_user: dict = Depends(JWTBearer())
 ):
     """Delete a document and its chunks."""
-    db = get_db()
-    
-    # Verify document ownership
-    document = await db.documents.find_one({
-        "_id": document_id,
-        "user_id": current_user["user_id"]
-    })
-    
-    if not document:
-        raise HTTPException(status_code=404, detail="Document not found")
-    
-    # Delete document file
     try:
-        os.remove(document["file_path"])
+        # Get MongoDB database connection
+        from src.common.db.connection import mongo_db
+        
+        # Verify document ownership - using synchronous approach
+        document = mongo_db.documents.find_one({
+            "_id": ObjectId(document_id),
+            "user_id": current_user["user_id"]
+        })
+        
+        if not document:
+            raise HTTPException(status_code=404, detail="Document not found")
+        
+        # Delete document file
+        try:
+            os.remove(document["file_path"])
+        except Exception as e:
+            logger.warning(f"Error deleting file: {e}")
+        
+        # Delete document and its chunks - synchronous approach
+        mongo_db.documents.delete_one({"_id": ObjectId(document_id)})
+        mongo_db.document_chunks.delete_many({"document_id": ObjectId(document_id)})
+        
+        return {"status": "success"}
     except Exception as e:
-        print(f"Error deleting file: {e}")
-    
-    # Delete document and its chunks
-    await db.documents.delete_one({"_id": document_id})
-    await db.document_chunks.delete_many({"document_id": document_id})
-    
-    return {"status": "success"}
+        logger.error(f"Error in delete_document: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete document: {str(e)}")
 
 @router.post("/query")
 async def query_documents(
@@ -133,16 +151,20 @@ async def query_documents(
         processor = DocumentProcessor(os.getenv("OPENAI_API_KEY"))
         query_embedding = processor._get_embedding(prompt)
         
-        # Fetch document chunks for the specified documents
-        db = get_db()
+        # Get MongoDB database connection
+        from src.common.db.connection import mongo_db
         
         # Convert document_ids to list if it's a single string
         if isinstance(document_ids, str):
             document_ids = [document_ids]
+        
+        # Convert string IDs to ObjectId
+        object_ids = [ObjectId(doc_id) for doc_id in document_ids]
             
-        chunks = await db.document_chunks.find(
-            {"document_id": {"$in": document_ids}}
-        ).to_list(length=None)
+        # Use synchronous approach for finding chunks
+        chunks = list(mongo_db.document_chunks.find(
+            {"document_id": {"$in": object_ids}}
+        ))
         
         if not chunks:
             return {
@@ -190,7 +212,8 @@ async def query_documents(
         sources = []
         for result in top_chunks:
             chunk = result["chunk"]
-            doc = await db.documents.find_one({"_id": chunk["document_id"]})
+            # Use synchronous approach to fetch document
+            doc = mongo_db.documents.find_one({"_id": chunk["document_id"]})
             if doc:
                 sources.append({
                     "filename": doc["filename"],

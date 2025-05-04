@@ -24,14 +24,14 @@ class AgentMCPClient:
         try:
             # Use websocket_client with the server URL
             async with websocket_client(self.server_url) as (read, write):
-            self.session = ClientSession(read, write)
-            await self.session.initialize()
-            capabilities = await self.session.get_capabilities()
-            
+                self.session = ClientSession(read, write)
+                await self.session.initialize()
+                capabilities = await self.session.get_capabilities()
+                
                 print(f"Connected to MCP server via WebSocket: {self.server_url}")
-            print(f"Server capabilities: {capabilities}")
-            
-            return self.session
+                print(f"Server capabilities: {capabilities}")
+                
+                return self.session
         except Exception as e:
             print(f"Failed to connect to MCP server: {e}")
             raise
@@ -41,12 +41,12 @@ class AgentMCPClient:
         if self.session:
             # Ensure shutdown is awaited
             try:
-            await self.session.shutdown()
+                await self.session.shutdown()
                 print("MCP session shut down successfully.")
             except Exception as e:
                 print(f"Error during MCP session shutdown: {e}")
             finally:
-            self.session = None
+                self.session = None
         else:
             print("No active MCP session to disconnect.")
     
@@ -158,7 +158,7 @@ class AgentMCPClient:
         )
         # Assuming the first message's text content is the desired prompt string
         if prompt.messages and prompt.messages[0].content and hasattr(prompt.messages[0].content, 'text'):
-        return prompt.messages[0].content.text
+            return prompt.messages[0].content.text
         return "" # Return empty string or raise error if structure is unexpected
     
     async def get_document_analysis_prompt(self, file_path: str) -> str:
@@ -172,5 +172,5 @@ class AgentMCPClient:
         )
         # Assuming the first message's text content is the desired prompt string
         if prompt.messages and prompt.messages[0].content and hasattr(prompt.messages[0].content, 'text'):
-        return prompt.messages[0].content.text 
+            return prompt.messages[0].content.text 
         return "" # Return empty string or raise error if structure is unexpected 
