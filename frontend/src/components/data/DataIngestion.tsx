@@ -1,18 +1,19 @@
 'use client';
 
 import React, { useState } from 'react';
-import { FaFolderOpen, FaDatabase, FaUpload, FaGlobe } from 'react-icons/fa';
+import { FaFolderOpen, FaDatabase, FaUpload, FaGlobe, FaCloudUploadAlt } from 'react-icons/fa';
 import DocumentUpload from '../documents/DocumentUpload';
 import DocumentList from '../documents/DocumentList';
 import DatabaseConnections from '../database/DatabaseConnections';
 import WebDataIngestion from '../web/WebDataIngestion';
+import DriveDataIngestion from '../drive/DriveDataIngestion';
 
 interface DataIngestionProps {
   onDocumentUploadSuccess: () => void;
   documentRefreshTrigger: number;
 }
 
-type DataTab = 'documents' | 'database' | 'web';
+type DataTab = 'documents' | 'database' | 'web' | 'drive';
 
 const DataIngestion: React.FC<DataIngestionProps> = ({ 
   onDocumentUploadSuccess, 
@@ -21,43 +22,59 @@ const DataIngestion: React.FC<DataIngestionProps> = ({
   const [activeTab, setActiveTab] = useState<DataTab>('documents');
 
   return (
-    <div className="flex flex-col space-y-4">
+    <div className="flex flex-col">
       {/* Tab Navigation */}
       <div className="bg-white shadow rounded-lg overflow-hidden">
         <div className="border-b border-gray-200">
-          <nav className="flex" aria-label="Tabs">
+          <nav className="-mb-px flex space-x-8 px-6" aria-label="Tabs">
             <button
               onClick={() => setActiveTab('documents')}
               className={`
-                px-4 py-4 text-center w-1/3 font-medium text-sm sm:text-base
+                py-4 px-1 border-b-2 font-medium text-sm
                 ${activeTab === 'documents'
-                  ? 'text-indigo-600 border-b-2 border-indigo-500'
-                  : 'text-gray-500 hover:text-gray-700 hover:border-gray-300 border-b-2 border-transparent'}
+                  ? 'border-indigo-500 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
               `}
+              aria-current={activeTab === 'documents' ? 'page' : undefined}
             >
               <FaFolderOpen className="inline-block mr-2" />
-              Documents
+              Files
             </button>
             <button
               onClick={() => setActiveTab('web')}
               className={`
-                px-4 py-4 text-center w-1/3 font-medium text-sm sm:text-base
+                py-4 px-1 border-b-2 font-medium text-sm
                 ${activeTab === 'web'
-                  ? 'text-indigo-600 border-b-2 border-indigo-500'
-                  : 'text-gray-500 hover:text-gray-700 hover:border-gray-300 border-b-2 border-transparent'}
+                  ? 'border-indigo-500 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
               `}
+              aria-current={activeTab === 'web' ? 'page' : undefined}
             >
               <FaGlobe className="inline-block mr-2" />
-              Web Sources
+              Web
+            </button>
+            <button
+              onClick={() => setActiveTab('drive')}
+              className={`
+                py-4 px-1 border-b-2 font-medium text-sm
+                ${activeTab === 'drive'
+                  ? 'border-indigo-500 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
+              `}
+              aria-current={activeTab === 'drive' ? 'page' : undefined}
+            >
+              <FaCloudUploadAlt className="inline-block mr-2" />
+              Cloud
             </button>
             <button
               onClick={() => setActiveTab('database')}
               className={`
-                px-4 py-4 text-center w-1/3 font-medium text-sm sm:text-base
+                py-4 px-1 border-b-2 font-medium text-sm
                 ${activeTab === 'database'
-                  ? 'text-indigo-600 border-b-2 border-indigo-500'
-                  : 'text-gray-500 hover:text-gray-700 hover:border-gray-300 border-b-2 border-transparent'}
+                  ? 'border-indigo-500 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
               `}
+              aria-current={activeTab === 'database' ? 'page' : undefined}
             >
               <FaDatabase className="inline-block mr-2" />
               Database
@@ -67,7 +84,7 @@ const DataIngestion: React.FC<DataIngestionProps> = ({
       </div>
 
       {/* Tab Content */}
-      <div className="flex-1">
+      <div className="p-6 bg-white shadow rounded-lg mt-4">
         {activeTab === 'documents' && (
           <div className="space-y-6">
             <DocumentUpload onUploadSuccess={onDocumentUploadSuccess} />
@@ -75,6 +92,7 @@ const DataIngestion: React.FC<DataIngestionProps> = ({
           </div>
         )}
         {activeTab === 'web' && <WebDataIngestion />}
+        {activeTab === 'drive' && <DriveDataIngestion />}
         {activeTab === 'database' && <DatabaseConnections />}
       </div>
     </div>

@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
-import { FaPaperPlane, FaDatabase, FaFileAlt, FaPlus, FaTimes, FaCheck } from 'react-icons/fa';
+import { FaPaperPlane, FaDatabase, FaFileAlt, FaPlus, FaTimes, FaCheck, FaGlobe, FaCloudUploadAlt } from 'react-icons/fa';
 import { Bar } from 'react-chartjs-2';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
@@ -46,6 +46,22 @@ type Document = {
   selected: boolean;
 };
 
+type WebSource = {
+  id: string;
+  url: string;
+  name: string;
+  status: string;
+  selected: boolean;
+};
+
+type DriveSource = {
+  id: string;
+  name: string;
+  type: 'google' | 'onedrive' | 'dropbox' | 'ftp' | 'sftp' | 'webdav' | 'other';
+  status: string;
+  selected: boolean;
+};
+
 type Message = {
   id: string;
   role: 'user' | 'assistant';
@@ -54,10 +70,12 @@ type Message = {
   chartData?: any;
   sourceConnections?: string[];
   sources?: string[];
-  chatType: 'sql' | 'document';
+  webSources?: string[];
+  cloudSources?: string[];
+  chatType: 'sql' | 'document' | 'web' | 'cloud';
 };
 
-type ChatMode = 'sql' | 'document';
+type ChatMode = 'sql' | 'document' | 'web' | 'cloud';
 
 const UnifiedChat: React.FC = () => {
   const { data: session } = useSession();
@@ -73,6 +91,16 @@ const UnifiedChat: React.FC = () => {
   
   // Document chat state
   const [documents, setDocuments] = useState<Document[]>([]);
+  
+  // Web chat state
+  const [webSources, setWebSources] = useState<WebSource[]>([]);
+  const [selectedWebSources, setSelectedWebSources] = useState<string[]>([]);
+  const [isLoadingWebSources, setIsLoadingWebSources] = useState(true);
+  
+  // Cloud chat state
+  const [driveSources, setDriveSources] = useState<DriveSource[]>([]);
+  const [selectedDriveSources, setSelectedDriveSources] = useState<string[]>([]);
+  const [isLoadingDriveSources, setIsLoadingDriveSources] = useState(true);
   
   // Active chat mode
   const [activeMode, setActiveMode] = useState<ChatMode>('sql');
@@ -131,6 +159,72 @@ const UnifiedChat: React.FC = () => {
     }
   }, [session]);
 
+  // Fetch web sources on component mount
+  useEffect(() => {
+    const fetchWebSources = async () => {
+      setIsLoadingWebSources(true);
+      try {
+        const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/web/sources`, {
+          headers: {
+            'Authorization': `Bearer ${(session as any)?.accessToken || ''}`
+          }
+        });
+        
+        // Transform the API response to match our expected structure
+        const webSourcesFromApi = response.data.map((source: any) => ({
+          id: source.id,
+          url: source.url,
+          name: source.name || source.url,
+          status: source.status,
+          selected: false
+        }));
+        
+        setWebSources(webSourcesFromApi);
+      } catch (error) {
+        console.error('Error fetching web sources:', error);
+      } finally {
+        setIsLoadingWebSources(false);
+      }
+    };
+
+    if (session) {
+      fetchWebSources();
+    }
+  }, [session]);
+
+  // Fetch drive sources on component mount
+  useEffect(() => {
+    const fetchDriveSources = async () => {
+      setIsLoadingDriveSources(true);
+      try {
+        const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/drive/sources`, {
+          headers: {
+            'Authorization': `Bearer ${(session as any)?.accessToken || ''}`
+          }
+        });
+        
+        // Transform the API response to match our expected structure
+        const driveSourcesFromApi = response.data.map((source: any) => ({
+          id: source.id,
+          name: source.name,
+          type: source.type,
+          status: source.status,
+          selected: false
+        }));
+        
+        setDriveSources(driveSourcesFromApi);
+      } catch (error) {
+        console.error('Error fetching drive sources:', error);
+      } finally {
+        setIsLoadingDriveSources(false);
+      }
+    };
+
+    if (session) {
+      fetchDriveSources();
+    }
+  }, [session]);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
   };
@@ -151,6 +245,16 @@ const UnifiedChat: React.FC = () => {
   const handleAddDocument = () => {
     router.push('/dashboard?tab=documents');
   };
+  
+  // Web chat functions
+  const handleAddWebSource = () => {
+    router.push('/dashboard?tab=data-ingestion&source=web');
+  };
+  
+  // Cloud chat functions
+  const handleAddDriveSource = () => {
+    router.push('/dashboard?tab=data-ingestion&source=drive');
+  };
 
   const toggleConnectionSelection = (connectionId: string) => {
     if (selectedConnections.includes(connectionId)) {
@@ -169,19 +273,83 @@ const UnifiedChat: React.FC = () => {
     );
   };
 
+  const toggleWebSourceSelection = (id: string) => {
+    if (selectedWebSources.includes(id)) {
+      setSelectedWebSources(selectedWebSources.filter(sourceId => sourceId !== id));
+    } else {
+      setSelectedWebSources([...selectedWebSources, id]);
+    }
+    
+    // Also update the selected state in the webSources array
+    setWebSources(sources => 
+      sources.map(source => 
+        source.id === id ? { ...source, selected: !source.selected } : source
+      )
+    );
+  };
+
+  const toggleDriveSourceSelection = (id: string) => {
+    if (selectedDriveSources.includes(id)) {
+      setSelectedDriveSources(selectedDriveSources.filter(sourceId => sourceId !== id));
+    } else {
+      setSelectedDriveSources([...selectedDriveSources, id]);
+    }
+    
+    // Also update the selected state in the driveSources array
+    setDriveSources(sources => 
+      sources.map(source => 
+        source.id === id ? { ...source, selected: !source.selected } : source
+      )
+    );
+  };
+
   const getSelectedDocumentIds = (): string[] => {
     return documents.filter(doc => doc.selected).map(doc => doc.id);
+  };
+
+  const getSelectedWebSourceIds = (): string[] => {
+    return webSources.filter(source => source.selected).map(source => source.id);
+  };
+
+  const getSelectedDriveSourceIds = (): string[] => {
+    return driveSources.filter(source => source.selected).map(source => source.id);
   };
 
   const hasSelectedDocuments = (): boolean => {
     return documents.some(doc => doc.selected);
   };
 
+  const hasSelectedWebSources = (): boolean => {
+    return webSources.some(source => source.selected);
+  };
+
+  const hasSelectedDriveSources = (): boolean => {
+    return driveSources.some(source => source.selected);
+  };
+
   // Save conversation to history
   const saveToHistory = async (prompt: string, response: string, chatType: ChatMode, hasChart: boolean = false) => {
     try {
+      let agentType;
+      switch(chatType) {
+        case 'sql':
+          agentType = 'SQL_AGENT';
+          break;
+        case 'document':
+          agentType = 'DOCUMENT_AGENT';
+          break;
+        case 'web':
+          agentType = 'WEB_AGENT';
+          break;
+        case 'cloud':
+          agentType = 'CLOUD_AGENT';
+          break;
+        default:
+          agentType = 'DOCUMENT_AGENT';
+      }
+      
       await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/agents/history`, {
-        agentType: chatType === 'sql' ? 'SQL_AGENT' : 'DOCUMENT_AGENT',
+        agentType,
         prompt,
         response,
         hasChart
@@ -205,6 +373,8 @@ const UnifiedChat: React.FC = () => {
     // Check if valid resources are selected based on mode
     if (activeMode === 'sql' && selectedConnections.length === 0) return;
     if (activeMode === 'document' && !hasSelectedDocuments()) return;
+    if (activeMode === 'web' && !hasSelectedWebSources()) return;
+    if (activeMode === 'cloud' && !hasSelectedDriveSources()) return;
     
     // Add user message
     const userMessage: Message = {
@@ -213,7 +383,9 @@ const UnifiedChat: React.FC = () => {
       content: input,
       timestamp: new Date(),
       chatType: activeMode,
-      ...(activeMode === 'sql' ? { sourceConnections: [...selectedConnections] } : {})
+      ...(activeMode === 'sql' ? { sourceConnections: [...selectedConnections] } : {}),
+      ...(activeMode === 'web' ? { webSources: getSelectedWebSourceIds() } : {}),
+      ...(activeMode === 'cloud' ? { cloudSources: getSelectedDriveSourceIds() } : {})
     };
     
     setMessages((prev) => [...prev, userMessage]);
@@ -319,7 +491,7 @@ const UnifiedChat: React.FC = () => {
         
         // Save the conversation to history
         await saveToHistory(userPrompt, mockResponse, 'sql', !!mockChartData);
-      } else {
+      } else if (activeMode === 'document') {
         // Document Chat logic
         const response = await axios.post(
           `${process.env.NEXT_PUBLIC_API_URL}/documents/query`,
@@ -349,6 +521,76 @@ const UnifiedChat: React.FC = () => {
         
         // Save the conversation to history
         await saveToHistory(userPrompt, responseData.response, 'document');
+      } else if (activeMode === 'web') {
+        // Web Chat logic
+        try {
+          const response = await axios.post(
+            `${process.env.NEXT_PUBLIC_API_URL}/web/query`,
+            {
+              prompt: userPrompt,
+              source_ids: getSelectedWebSourceIds()
+            },
+            {
+              headers: {
+                'Authorization': `Bearer ${(session as any)?.accessToken || ''}`
+              }
+            }
+          );
+          
+          const responseData = response.data;
+          
+          const assistantMessage: Message = {
+            id: (Date.now() + 1).toString(),
+            role: 'assistant',
+            content: responseData.response,
+            timestamp: new Date(),
+            sources: responseData.sources.map((source: any) => `${source.url}: ${source.chunk_text}`),
+            chatType: 'web'
+          };
+          
+          setMessages((prev) => [...prev, assistantMessage]);
+          
+          // Save the conversation to history
+          await saveToHistory(userPrompt, responseData.response, 'web');
+        } catch (error) {
+          console.error('Error with web query:', error);
+          throw error;
+        }
+      } else if (activeMode === 'cloud') {
+        // Cloud Chat logic
+        try {
+          const response = await axios.post(
+            `${process.env.NEXT_PUBLIC_API_URL}/drive/query`,
+            {
+              prompt: userPrompt,
+              source_ids: getSelectedDriveSourceIds()
+            },
+            {
+              headers: {
+                'Authorization': `Bearer ${(session as any)?.accessToken || ''}`
+              }
+            }
+          );
+          
+          const responseData = response.data;
+          
+          const assistantMessage: Message = {
+            id: (Date.now() + 1).toString(),
+            role: 'assistant',
+            content: responseData.response,
+            timestamp: new Date(),
+            sources: responseData.sources.map((source: any) => `${source.filename}: ${source.chunk_text}`),
+            chatType: 'cloud'
+          };
+          
+          setMessages((prev) => [...prev, assistantMessage]);
+          
+          // Save the conversation to history
+          await saveToHistory(userPrompt, responseData.response, 'cloud');
+        } catch (error) {
+          console.error('Error with cloud query:', error);
+          throw error;
+        }
       }
     } catch (error) {
       console.error('Error sending message:', error);
@@ -399,6 +641,28 @@ const UnifiedChat: React.FC = () => {
             >
               <FaFileAlt className="inline-block mr-2" />
               Documents
+            </button>
+            <button
+              onClick={() => setActiveMode('web')}
+              className={`px-3 py-1 rounded-full font-medium transition-colors ${
+                activeMode === 'web' 
+                  ? 'bg-indigo-600 text-white'
+                  : 'bg-indigo-200 text-indigo-800 hover:bg-indigo-300'
+              }`}
+            >
+              <FaGlobe className="inline-block mr-2" />
+              Web
+            </button>
+            <button
+              onClick={() => setActiveMode('cloud')}
+              className={`px-3 py-1 rounded-full font-medium transition-colors ${
+                activeMode === 'cloud' 
+                  ? 'bg-indigo-600 text-white'
+                  : 'bg-indigo-200 text-indigo-800 hover:bg-indigo-300'
+              }`}
+            >
+              <FaCloudUploadAlt className="inline-block mr-2" />
+              Cloud
             </button>
           </div>
         </div>
@@ -461,7 +725,7 @@ const UnifiedChat: React.FC = () => {
                 </div>
               )}
             </div>
-          ) : (
+          ) : activeMode === 'document' ? (
             /* Document Mode Sidebar */
             <div>
               <div className="flex justify-between items-center mb-3">
@@ -514,6 +778,123 @@ const UnifiedChat: React.FC = () => {
                 </div>
               )}
             </div>
+          ) : activeMode === 'web' ? (
+            /* Web Mode Sidebar */
+            <div>
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="font-medium">Web Sources</h3>
+                <button
+                  onClick={handleAddWebSource}
+                  className="p-1.5 bg-indigo-100 text-indigo-700 hover:bg-indigo-200 rounded-full transition-colors flex items-center justify-center"
+                  title="Add new web source"
+                >
+                  <FaPlus size={14} />
+                </button>
+              </div>
+              
+              {isLoadingWebSources ? (
+                <div className="text-center py-4">
+                  <div className="animate-spin mx-auto h-5 w-5 border-2 border-indigo-500 rounded-full border-t-transparent"></div>
+                  <p className="text-sm text-gray-500 mt-2">Loading web sources...</p>
+                </div>
+              ) : webSources.length === 0 ? (
+                <div className="mt-2">
+                  <p className="text-sm text-gray-500 mb-2">No web sources added yet</p>
+                  <button
+                    onClick={handleAddWebSource}
+                    className="px-3 py-1 w-full bg-indigo-600 text-white rounded hover:bg-indigo-700 flex items-center text-sm justify-center"
+                  >
+                    <FaPlus className="mr-1" />
+                    Add Web Source
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <ul className="space-y-2 overflow-y-auto mt-2">
+                    {webSources.map((source) => (
+                      <li key={source.id}>
+                        <button
+                          onClick={() => toggleWebSourceSelection(source.id)}
+                          className={`flex items-center p-2 rounded w-full text-left text-sm ${
+                            source.selected
+                              ? 'bg-indigo-100 text-indigo-800 font-medium'
+                              : 'hover:bg-gray-100 text-gray-700'
+                          }`}
+                        >
+                          <div className="flex-shrink-0 mr-2">
+                            {source.selected ? (
+                              <FaCheck className="text-indigo-600" />
+                            ) : (
+                              <FaGlobe className="text-gray-400" />
+                            )}
+                          </div>
+                          <div className="truncate font-medium">{source.name}</div>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          ) : (
+            /* Cloud Drive Mode Sidebar */
+            <div>
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="font-medium">Cloud Sources</h3>
+                <button
+                  onClick={handleAddDriveSource}
+                  className="p-1.5 bg-indigo-100 text-indigo-700 hover:bg-indigo-200 rounded-full transition-colors flex items-center justify-center"
+                  title="Add new cloud source"
+                >
+                  <FaPlus size={14} />
+                </button>
+              </div>
+              
+              {isLoadingDriveSources ? (
+                <div className="text-center py-4">
+                  <div className="animate-spin mx-auto h-5 w-5 border-2 border-indigo-500 rounded-full border-t-transparent"></div>
+                  <p className="text-sm text-gray-500 mt-2">Loading cloud sources...</p>
+                </div>
+              ) : driveSources.length === 0 ? (
+                <div className="mt-2">
+                  <p className="text-sm text-gray-500 mb-2">No cloud sources added yet</p>
+                  <button
+                    onClick={handleAddDriveSource}
+                    className="px-3 py-1 w-full bg-indigo-600 text-white rounded hover:bg-indigo-700 flex items-center text-sm justify-center"
+                  >
+                    <FaPlus className="mr-1" />
+                    Add Cloud Source
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <ul className="space-y-2 overflow-y-auto mt-2">
+                    {driveSources.map((source) => (
+                      <li key={source.id}>
+                        <button
+                          onClick={() => toggleDriveSourceSelection(source.id)}
+                          className={`flex items-center p-2 rounded w-full text-left text-sm ${
+                            source.selected
+                              ? 'bg-indigo-100 text-indigo-800 font-medium'
+                              : 'hover:bg-gray-100 text-gray-700'
+                          }`}
+                        >
+                          <div className="flex-shrink-0 mr-2">
+                            {source.selected ? (
+                              <FaCheck className="text-indigo-600" />
+                            ) : (
+                              <FaCloudUploadAlt className="text-gray-400" />
+                            )}
+                          </div>
+                          <div className="truncate font-medium">{source.name}</div>
+                          <div className="text-xs text-gray-500 ml-auto">{source.type}</div>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
           )}
         </div>
         
@@ -541,7 +922,7 @@ const UnifiedChat: React.FC = () => {
                       </p>
                     )}
                   </>
-                ) : (
+                ) : activeMode === 'document' ? (
                   <>
                     <FaFileAlt className="text-5xl mb-4 text-indigo-300" />
                     <p className="text-center mb-4">
@@ -554,6 +935,38 @@ const UnifiedChat: React.FC = () => {
                       >
                         <FaPlus className="mr-2" size={14} />
                         Upload Your First Document
+                      </button>
+                    )}
+                  </>
+                ) : activeMode === 'web' ? (
+                  <>
+                    <FaGlobe className="text-5xl mb-4 text-indigo-300" />
+                    <p className="text-center mb-4">
+                      Select web sources and ask questions about web content
+                    </p>
+                    {webSources.length === 0 && (
+                      <button
+                        onClick={handleAddWebSource}
+                        className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 flex items-center"
+                      >
+                        <FaPlus className="mr-2" size={14} />
+                        Add Your First Web Source
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <FaCloudUploadAlt className="text-5xl mb-4 text-indigo-300" />
+                    <p className="text-center mb-4">
+                      Select cloud sources and ask questions about shared drive content
+                    </p>
+                    {driveSources.length === 0 && (
+                      <button
+                        onClick={handleAddDriveSource}
+                        className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 flex items-center"
+                      >
+                        <FaPlus className="mr-2" size={14} />
+                        Add Your First Cloud Source
                       </button>
                     )}
                   </>

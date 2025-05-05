@@ -7,7 +7,7 @@ import { useSession } from 'next-auth/react';
 
 type HistoryItem = {
   id: string;
-  agentType: 'SQL_AGENT' | 'DOCUMENT_AGENT';
+  agentType: 'SQL_AGENT' | 'DOCUMENT_AGENT' | 'WEB_AGENT' | 'CLOUD_AGENT';
   prompt: string;
   response: string;
   timestamp: string;
