@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import axios from 'axios';
+import { DEFAULT_API_URL } from '@/constants/auth';
 
 export default function Signup() {
   const [mobileNumber, setMobileNumber] = useState('');
@@ -11,7 +12,7 @@ export default function Signup() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
-  const [debugInfo, setDebugInfo] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
@@ -42,35 +43,33 @@ export default function Signup() {
     
     setIsLoading(true);
     setError('');
-    setDebugInfo(null);
+    setSuccess(false);
     
-    // For Docker networking, backend service name works better than localhost
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://backend:8000';
-    console.log(`Using API URL: ${apiUrl}`);
+    // Use environment variable with fallback to localhost instead of backend container name
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_URL;
     
     try {
-      console.log(`Signing up user with mobile: ${mobileNumber}, email: ${email || 'not provided'}`);
-      
+      console.log(`Sending signup request to: ${apiUrl}/auth/signup`);
       const payload = {
         mobile_number: mobileNumber,
         password: password,
         ...(email ? { email } : {})
       };
       
-      console.log('Signup payload:', payload);
-      setDebugInfo(`Sending request to ${apiUrl}/auth/signup with data: ${JSON.stringify(payload, null, 2)}`);
+      const response = await axios.post(`${apiUrl}/auth/signup`, payload, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
+      });
       
-      const response = await axios.post(`${apiUrl}/auth/signup`, payload);
-      
-      console.log('Signup response:', response);
-      setDebugInfo(prev => `${prev || ''}\n\nResponse: ${JSON.stringify(response.data, null, 2)}`);
+      console.log('Signup response:', response.status);
       
       if (response.status === 200 || response.status === 201) {
-        setError('');
-        setDebugInfo(prev => `${prev || ''}\n\nSuccess! Redirecting to login page...`);
+        setSuccess(true);
         setTimeout(() => {
-        router.push('/login');
-        }, 1500);
+          router.push('/login');
+        }, 1000);
       }
     } catch (error: any) {
       console.error('Signup error:', error);
@@ -78,11 +77,6 @@ export default function Signup() {
         // The request was made and the server responded with a status code
         // that falls out of the range of 2xx
         const responseData = error.response.data;
-        setDebugInfo(JSON.stringify({
-          status: error.response.status,
-          statusText: error.response.statusText,
-          data: responseData
-        }, null, 2));
         
         if (responseData && responseData.detail) {
           setError(responseData.detail);
@@ -92,74 +86,10 @@ export default function Signup() {
       } else if (error.request) {
         // The request was made but no response was received
         setError('No response received from server. Please check your connection.');
-        setDebugInfo(JSON.stringify(error.request, null, 2));
       } else {
         // Something happened in setting up the request that triggered an Error
         setError(`Error: ${error.message}`);
-        setDebugInfo(error.stack || 'No stack trace available');
       }
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // For testing direct API access
-  const testDirectApiSignup = async () => {
-    try {
-      setIsLoading(true);
-      setError('');
-      setDebugInfo('Testing direct API call for signup...');
-      
-      // Try to access backend directly
-      // For Docker networking, backend service name works better than localhost
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://backend:8000';
-      setDebugInfo(`Using API URL: ${apiUrl}`);
-      
-      // Prepare the data
-      const formData = {
-        mobile_number: mobileNumber,
-        password: password,
-        ...(email ? { email } : {})
-      };
-      
-      setDebugInfo(prev => `${prev}\n\nSending request with data: ${JSON.stringify(formData, null, 2)}`);
-      
-      // Make the request
-      const response = await fetch(`${apiUrl}/auth/signup`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
-      
-      const data = await response.json();
-      setDebugInfo(prev => `${prev}\n\nResponse status: ${response.status}\n${JSON.stringify(data, null, 2)}`);
-      
-      if (response.ok) {
-        setError('');
-        setDebugInfo(prev => `${prev}\n\nDirect API call successful! User created.`);
-      } else {
-        setError(`Direct API call failed: ${data.detail || 'Unknown error'}`);
-      }
-    } catch (error: any) {
-      console.error('Direct API error:', error);
-      setError('Direct API call error');
-      
-      let errorDetails = 'Unknown error';
-      if (error instanceof Error) {
-        errorDetails = error.message;
-        if ('response' in error && error.response) {
-          try {
-            // @ts-ignore - We're dynamically checking for response property
-            errorDetails += `\nStatus: ${error.response.status}\nData: ${JSON.stringify(error.response.data, null, 2)}`;
-          } catch (e) {
-            // Ignore serialization errors
-          }
-        }
-      }
-      
-      setDebugInfo(`Error: ${errorDetails}`);
     } finally {
       setIsLoading(false);
     }
@@ -176,6 +106,12 @@ export default function Signup() {
         {error && (
           <div className="p-4 mb-4 text-sm text-red-700 bg-red-100 rounded-lg">
             {error}
+          </div>
+        )}
+        
+        {success && (
+          <div className="p-4 mb-4 text-sm text-green-700 bg-green-100 rounded-lg">
+            Account created successfully! Redirecting to login...
           </div>
         )}
         
@@ -256,15 +192,6 @@ export default function Signup() {
             >
               {isLoading ? 'Loading...' : 'Sign up'}
             </button>
-            
-            <button
-              type="button"
-              onClick={testDirectApiSignup}
-              disabled={isLoading}
-              className="relative flex justify-center w-full px-4 py-2 text-sm font-medium text-indigo-600 bg-white border border-indigo-300 rounded-md group hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-100"
-            >
-              Test Direct API Signup
-            </button>
           </div>
         </form>
         
@@ -276,12 +203,6 @@ export default function Signup() {
             </Link>
           </p>
         </div>
-        
-        {debugInfo && (
-          <div className="mt-4 p-3 bg-gray-100 rounded text-xs overflow-auto max-h-64">
-            <pre>{debugInfo}</pre>
-          </div>
-        )}
       </div>
     </div>
   );

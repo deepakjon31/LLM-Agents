@@ -21,31 +21,37 @@ interface EditConnectionFormProps {
 }
 
 const EditConnectionForm: React.FC<EditConnectionFormProps> = ({ connection, onSubmit, onCancel }) => {
+  console.log("Received connection data:", connection);
+  
   const [formData, setFormData] = useState({
-    id: connection.id,
-    name: connection.name,
-    type: connection.type,
-    database: connection.database,
-    host: connection.host,
-    port: connection.port.toString(),
-    username: connection.username,
+    id: connection?.id || '',
+    name: connection?.name || '',
+    type: connection?.type || 'postgresql',
+    database: connection?.database || '',
+    host: connection?.host || '',
+    port: connection?.port?.toString() || '5432',
+    username: connection?.username || '',
     password: '' // Password is not returned from the API for security
   });
   
   const [errors, setErrors] = useState<{[key: string]: string}>({});
   
   useEffect(() => {
+    console.log("Connection props changed:", connection);
+    
     // Update form data if connection props change
-    setFormData({
-      id: connection.id,
-      name: connection.name,
-      type: connection.type,
-      database: connection.database,
-      host: connection.host,
-      port: connection.port.toString(),
-      username: connection.username,
-      password: formData.password // Keep current password input
-    });
+    if (connection) {
+      setFormData({
+        id: connection.id || '',
+        name: connection.name || '',
+        type: connection.type || 'postgresql',
+        database: connection.database || '',
+        host: connection.host || '',
+        port: (connection.port || 5432).toString(),
+        username: connection.username || '',
+        password: formData.password // Keep current password input
+      });
+    }
   }, [connection]);
   
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -90,6 +96,7 @@ const EditConnectionForm: React.FC<EditConnectionFormProps> = ({ connection, onS
         port: parseInt(formData.port, 10)
       };
       
+      console.log("Submitting form data:", submissionData);
       onSubmit(submissionData);
     }
   };

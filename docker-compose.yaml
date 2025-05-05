@@ -101,6 +101,7 @@ services:
       - NEXTAUTH_URL=http://localhost:3000
       - NEXTAUTH_SECRET=development_nextauth_secret
       - NEXTAUTH_URL_INTERNAL=http://frontend:3000
+      - NEXTAUTH_BACKEND_URL_INTERNAL=http://backend:8000
     depends_on:
       - backend
     restart: unless-stopped

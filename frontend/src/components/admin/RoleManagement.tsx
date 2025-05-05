@@ -4,8 +4,9 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useSession } from 'next-auth/react';
 import { 
-  FaPlus, FaEdit, FaTrash, FaCheck, FaTimes, FaUserTag, FaLock, FaUsers
+  FaPlus, FaEdit, FaTrash, FaCheck, FaTimes, FaUserTag, FaLock, FaUsers, FaKey
 } from 'react-icons/fa';
+import toast from 'react-hot-toast';
 
 type Role = {
   id: number;
@@ -28,7 +29,7 @@ const RoleManagement: React.FC = () => {
   const [roles, setRoles] = useState<Role[]>([]);
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
-  const [rolePermissions, setRolePermissions] = useState<Permission[]>([]);
+  const [rolePermissions, setRolePermissions] = useState<number[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<number | null>(null);
@@ -109,7 +110,7 @@ const RoleManagement: React.FC = () => {
         }
       );
       
-      setRolePermissions(permissionsResponse.data);
+      setRolePermissions(permissionsResponse.data.map((perm: Permission) => perm.id));
       setSelectedPermissions(permissionsResponse.data.map((perm: Permission) => perm.id));
       
     } catch (err) {
@@ -544,13 +545,13 @@ const RoleManagement: React.FC = () => {
                     
                     {rolePermissions.length > 0 ? (
                       <div className="flex flex-wrap gap-2">
-                        {rolePermissions.map((permission) => (
+                        {rolePermissions.map((permissionId) => (
                           <span
-                            key={permission.id}
+                            key={permissionId}
                             className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs flex items-center"
                           >
                             <FaLock className="mr-1 text-xs" />
-                            {permission.name}
+                            {permissions.find(p => p.id === permissionId)?.name}
                           </span>
                         ))}
                       </div>

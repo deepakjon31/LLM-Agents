@@ -5,8 +5,9 @@ import axios from 'axios';
 import { useSession } from 'next-auth/react';
 import { 
   FaUserPlus, FaEdit, FaTrash, FaCheck, FaBan, FaUserShield, 
-  FaSearch, FaTimes, FaUserTag 
+  FaSearch, FaTimes, FaUserTag, FaUsersCog 
 } from 'react-icons/fa';
+import toast from 'react-hot-toast';
 
 type User = {
   id: number;
@@ -39,6 +40,8 @@ const UserManagement: React.FC = () => {
   const [isEditMode, setIsEditMode] = useState(false);
   const [showRoleAssignment, setShowRoleAssignment] = useState(false);
   const [selectedRoles, setSelectedRoles] = useState<number[]>([]);
+  const [userRoles, setUserRoles] = useState<number[]>([]);
+  const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
   
   // Form data for editing
   const [formData, setFormData] = useState({
@@ -213,6 +216,28 @@ const UserManagement: React.FC = () => {
     } catch (err) {
       console.error('Error deleting user:', err);
       setError('Failed to delete user');
+    }
+  };
+
+  const handleAssignRoles = async (user: User) => {
+    setSelectedUser(user);
+    const userRoleIds = await fetchUserRoles(user.id);
+    setUserRoles(userRoleIds);
+    setIsRoleModalOpen(true);
+  };
+
+  const fetchUserRoles = async (userId: number) => {
+    try {
+      const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/admin/users/${userId}/roles`, {
+        headers: {
+          'Authorization': `Bearer ${(session as any)?.accessToken || ''}`
+        }
+      });
+      return response.data.map((role: Role) => role.id);
+    } catch (error) {
+      console.error('Error fetching user roles:', error);
+      toast.error('Failed to load user roles');
+      return [];
     }
   };
 
@@ -576,6 +601,52 @@ const UserManagement: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Role Assignment Modal */}
+      {isRoleModalOpen && selectedUser && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 max-w-md w-full">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">
+              Assign Roles: {selectedUser.mobile_number}
+            </h3>
+            
+            <div className="mb-4 max-h-60 overflow-y-auto">
+              {roles.map((role) => (
+                <div key={role.id} className="flex items-center py-2">
+                  <input
+                    type="checkbox"
+                    id={`role-${role.id}`}
+                    checked={userRoles.includes(role.id)}
+                    onChange={() => handleRoleToggle(role.id)}
+                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor={`role-${role.id}`} className="ml-3 text-sm text-gray-700">
+                    {role.name}
+                    {role.description && (
+                      <span className="text-xs text-gray-500 ml-2">({role.description})</span>
+                    )}
+                  </label>
+                </div>
+              ))}
+            </div>
+            
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setIsRoleModalOpen(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveRoles}
+                className="px-4 py-2 bg-indigo-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-indigo-700"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

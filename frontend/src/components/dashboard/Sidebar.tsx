@@ -1,9 +1,11 @@
 'use client';
 
 import React from 'react';
-import { FaDatabase, FaFileAlt, FaHistory, FaFolderOpen, FaSignOutAlt, FaServer, FaChevronLeft, FaChevronRight, FaComments } from 'react-icons/fa';
+import { FaDatabase, FaFileAlt, FaHistory, FaFolderOpen, FaSignOutAlt, FaServer, FaChevronLeft, FaChevronRight, FaComments, FaUsersCog } from 'react-icons/fa';
+import { useSession } from 'next-auth/react';
+import { sessionHasAdminAccess } from '@/utils/adminUtils';
 
-type ActiveTab = 'chat' | 'history' | 'documents' | 'database-connections';
+type ActiveTab = 'chat' | 'history' | 'documents' | 'database-connections' | 'admin';
 
 interface SidebarProps {
   activeTab: ActiveTab;
@@ -20,12 +22,22 @@ const Sidebar: React.FC<SidebarProps> = ({
   isExpanded,
   onToggleExpand 
 }) => {
+  const { data: session } = useSession();
+  
+  // Check admin status using utility function
+  const isAdmin = sessionHasAdminAccess(session);
+
   const navItems = [
     { id: 'chat', label: 'AI Chatbot', icon: <FaComments /> },
     { id: 'history', label: 'Chat History', icon: <FaHistory /> },
     { id: 'documents', label: 'Manage Documents', icon: <FaFolderOpen /> },
     { id: 'database-connections', label: 'Database Connections', icon: <FaServer /> },
   ];
+
+  // Add admin link for users with admin role
+  if (isAdmin) {
+    navItems.push({ id: 'admin', label: 'Admin Panel', icon: <FaUsersCog /> });
+  }
 
   return (
     <div className="bg-indigo-800 text-white h-full p-3 flex flex-col overflow-hidden relative">

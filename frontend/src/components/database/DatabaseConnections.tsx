@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useSession } from 'next-auth/react';
 import { FaDatabase, FaPlus, FaEdit, FaTrash, FaCheck, FaExclamationTriangle, FaExternalLinkAlt, FaTable } from 'react-icons/fa';
+import toast from 'react-hot-toast';
 import CreateConnectionForm from './CreateConnectionForm';
 import EditConnectionForm from './EditConnectionForm';
 import ConnectionDetails from './ConnectionDetails';
@@ -41,7 +42,18 @@ const DatabaseConnections: React.FC = () => {
           'Authorization': `Bearer ${(session as any)?.accessToken || ''}`
         }
       });
-      setConnections(response.data);
+      
+      // Map response to include parsed connection details
+      const connectionsWithDetails = response.data.map((conn: any) => {
+        return {
+          ...conn,
+          // Parse connection details for display
+          ...parseConnectionDetails(conn)
+        };
+      });
+      
+      console.log("Fetched connections with details:", connectionsWithDetails);
+      setConnections(connectionsWithDetails);
     } catch (error) {
       console.error('Error fetching database connections:', error);
     } finally {
@@ -53,6 +65,9 @@ const DatabaseConnections: React.FC = () => {
     try {
       // Build connection string based on database type
       let connectionString = "";
+      let db_type = newConnection.type;
+      
+      // Create proper connection strings
       if (newConnection.type === "postgresql") {
         connectionString = `postgresql://${newConnection.username}:${newConnection.password}@${newConnection.host}:${newConnection.port}/${newConnection.database}`;
       } else if (newConnection.type === "mysql") {
@@ -67,35 +82,74 @@ const DatabaseConnections: React.FC = () => {
       // Create the payload for the backend
       const connectionData = {
         name: newConnection.name,
-        connection_string: connectionString
+        description: `${newConnection.type} connection to ${newConnection.database} on ${newConnection.host}`,
+        db_type: db_type,
+        connection_string: connectionString,
+        is_active: true
       };
       
+      console.log("Sending connection data:", connectionData);
+      
       // Send to the correct endpoint
-      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/database/connect`, connectionData, {
+      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/database/connections`, connectionData, {
         headers: {
           'Authorization': `Bearer ${(session as any)?.accessToken || ''}`
         }
       });
+      
       setShowCreateForm(false);
       fetchConnections();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating connection:', error);
-      alert('Failed to create connection. Please check your inputs and try again.');
+      alert(`Failed to create connection: ${error.response?.data?.detail || error.message}. Please check your inputs and try again.`);
     }
   };
 
   const handleUpdateConnection = async (updatedConnection: any) => {
     try {
-      // In a full implementation, we would have a PUT endpoint
-      // For this demo, we'll simulate by deleting and recreating
-      await handleDeleteConnection(updatedConnection.id);
-      await handleCreateConnection(updatedConnection);
+      console.log("Updating connection with data:", updatedConnection);
+      
+      // Build connection string based on database type
+      let connectionString = "";
+      let db_type = updatedConnection.type;
+      
+      // Create proper connection strings
+      if (updatedConnection.type === "postgresql") {
+        connectionString = `postgresql://${updatedConnection.username}:${updatedConnection.password}@${updatedConnection.host}:${updatedConnection.port}/${updatedConnection.database}`;
+      } else if (updatedConnection.type === "mysql") {
+        connectionString = `mysql+pymysql://${updatedConnection.username}:${updatedConnection.password}@${updatedConnection.host}:${updatedConnection.port}/${updatedConnection.database}`;
+      } else if (updatedConnection.type === "sqlite") {
+        connectionString = `sqlite:///${updatedConnection.database}`;
+      } else if (updatedConnection.type === "mongodb") {
+        connectionString = `mongodb://${updatedConnection.username}:${updatedConnection.password}@${updatedConnection.host}:${updatedConnection.port}/${updatedConnection.database}`;
+      }
+      
+      // Create the payload for the backend
+      const connectionData = {
+        name: updatedConnection.name,
+        description: `${updatedConnection.type} connection to ${updatedConnection.database} on ${updatedConnection.host}`,
+        db_type: db_type,
+        connection_string: connectionString,
+        is_active: true
+      };
+      
+      // Use the PUT endpoint to update the connection
+      await axios.put(
+        `${process.env.NEXT_PUBLIC_API_URL}/database/connections/${updatedConnection.id}`, 
+        connectionData, 
+        {
+          headers: {
+            'Authorization': `Bearer ${(session as any)?.accessToken || ''}`
+          }
+        }
+      );
       
       setEditConnection(null);
       fetchConnections();
+      toast.success("Connection updated successfully");
     } catch (error) {
       console.error('Error updating connection:', error);
-      alert('Failed to update connection. Please try again.');
+      toast.error('Failed to update connection. Please try again.');
     }
   };
 
@@ -120,25 +174,35 @@ const DatabaseConnections: React.FC = () => {
     }
   };
 
-  const handleTestConnection = async (id: string) => {
+  const handleTestConnection = async (id: string, connectionType: string) => {
     try {
-      // Test connection by trying to get the tables
-      const response = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/database/tables?connection_id=${id}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${(session as any)?.accessToken || ''}`
-          }
-        }
-      );
+      console.log(`Testing connection ID: ${id}, type: ${connectionType}`);
       
-      setTestResults({
-        ...testResults,
-        [id]: { 
-          success: true, 
-          message: `Successfully connected. Found ${response.data.length} tables.` 
-        }
-      });
+      // Test connection based on type
+      if (connectionType === 'mongodb') {
+        // For MongoDB connections, use the old endpoint which expects ObjectId
+        // This is for future implementation, currently not functional
+        toast.error('MongoDB connection testing is not yet implemented');
+        return;
+      } else {
+        // For SQL connections (postgresql, mysql, etc), use the database API
+        const response = await axios.get(
+          `${process.env.NEXT_PUBLIC_API_URL}/database/connections/${id}/test`,
+          {
+            headers: {
+              'Authorization': `Bearer ${(session as any)?.accessToken || ''}`
+            }
+          }
+        );
+        
+        setTestResults({
+          ...testResults,
+          [id]: { 
+            success: true, 
+            message: `Successfully connected. Database is accessible.` 
+          }
+        });
+      }
       
       // Clear the test result after 5 seconds
       setTimeout(() => {
@@ -159,6 +223,96 @@ const DatabaseConnections: React.FC = () => {
       });
     }
   };
+
+  // Function to extract connection details from a connection string
+  const parseConnectionDetails = (dbConnection: any) => {
+    try {
+      console.log("Parsing connection details for:", dbConnection);
+      
+      const connectionString = dbConnection.connection_string;
+      const type = dbConnection.db_type;
+      let host = 'localhost';
+      let port = '5432';
+      let username = '';
+      let password = '';
+      let database = '';
+      
+      // Parse connection string based on database type
+      if (type === 'postgresql') {
+        // Format: postgresql://username:password@host:port/database
+        const regex = /postgresql:\/\/([^:]+)(?::([^@]+))?@([^:]+):(\d+)\/(.+)/;
+        const matches = connectionString.match(regex);
+        
+        if (matches && matches.length >= 6) {
+          username = matches[1] || '';
+          password = matches[2] || '';
+          host = matches[3] || 'localhost';
+          port = matches[4] || '5432';
+          database = matches[5] || '';
+        }
+      } else if (type === 'mysql') {
+        // Format: mysql+pymysql://username:password@host:port/database
+        const regex = /mysql\+pymysql:\/\/([^:]+)(?::([^@]+))?@([^:]+):(\d+)\/(.+)/;
+        const matches = connectionString.match(regex);
+        
+        if (matches && matches.length >= 6) {
+          username = matches[1] || '';
+          password = matches[2] || '';
+          host = matches[3] || 'localhost';
+          port = matches[4] || '3306';
+          database = matches[5] || '';
+        }
+      } else if (type === 'sqlite') {
+        // Format: sqlite:///database
+        const regex = /sqlite:\/\/\/(.+)/;
+        const matches = connectionString.match(regex);
+        
+        if (matches && matches.length >= 2) {
+          database = matches[1];
+          host = 'local file';
+          port = '0';
+        }
+      } else if (type === 'mongodb') {
+        // Format: mongodb://username:password@host:port/database
+        const regex = /mongodb:\/\/(?:([^:]+)(?::([^@]+))?@)?([^:\/]+)(?::(\d+))?(?:\/([^?]+))?/;
+        const matches = connectionString.match(regex);
+        
+        if (matches && matches.length >= 6) {
+          username = matches[1] || '';
+          password = matches[2] || '';
+          host = matches[3] || 'localhost';
+          port = matches[4] || '27017';
+          database = matches[5] || '';
+        }
+      }
+      
+      return {
+        type,
+        host,
+        port,
+        username,
+        password,
+        database
+      };
+    } catch (error) {
+      console.error("Error parsing connection details:", error);
+      return {
+        type: dbConnection.db_type,
+        host: 'localhost',
+        port: '',
+        username: '',
+        password: '',
+        database: ''
+      };
+    }
+  };
+
+  // Modify handleEditConnection:
+  // When the Edit button is clicked
+  const handleEditButton = (connection: DatabaseConnection) => {
+    console.log("Editing connection:", connection);
+    setEditConnection(connection);
+  }
 
   if (isLoading) {
     return (
@@ -247,14 +401,14 @@ const DatabaseConnections: React.FC = () => {
                             <FaExternalLinkAlt size={18} />
                           </button>
                           <button
-                            onClick={() => handleTestConnection(connection.id)}
+                            onClick={() => handleTestConnection(connection.id, connection.type)}
                             className="text-green-600 hover:text-green-900 p-1"
                             title="Test Connection"
                           >
                             <FaCheck size={18} />
                           </button>
                           <button
-                            onClick={() => setEditConnection(connection)}
+                            onClick={() => handleEditButton(connection)}
                             className="text-yellow-600 hover:text-yellow-900 p-1"
                             title="Edit"
                           >

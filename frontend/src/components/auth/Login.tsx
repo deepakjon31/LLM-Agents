@@ -11,7 +11,6 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [debugInfo, setDebugInfo] = useState<string | null>(null);
   const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -33,8 +32,6 @@ export default function Login() {
     
     // In browser context, we use NEXT_PUBLIC_API_URL which points to the publicly accessible URL
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-    setDebugInfo(`Login attempt for: ${mobileNumber}\nAPI URL: ${apiUrl}`);
-    
     console.log(`Login attempt with: ${mobileNumber}`);
     
     try {
@@ -47,94 +44,19 @@ export default function Login() {
       });
       
       console.log('SignIn result:', result);
-      setDebugInfo(prev => `${prev}\n\nSignIn result: ${JSON.stringify(result, null, 2)}`);
       
       if (result?.error) {
         setError(result.error);
         console.error('Login error:', result.error);
-        
-        // Add more helpful message for common errors
-        if (result.error.includes("mobile number") || result.error.includes("password")) {
-          setDebugInfo(prev => `${prev}\n\nLogin failed: Invalid credentials. Please check your mobile number and password.`);
-        } else {
-          setDebugInfo(prev => `${prev}\n\nLogin failed with error: ${result.error}`);
-        }
-        
-        // Suggest using the test API button
-        setDebugInfo(prev => `${prev}\n\nTry using the "Test Direct API" button to diagnose the issue.`);
       } else if (result?.ok) {
         console.log('Login successful, redirecting to dashboard');
-        setDebugInfo(prev => `${prev}\n\nLogin successful! Redirecting...`);
         router.push('/dashboard');
       } else {
         setError('Login failed with unknown error');
-        setDebugInfo(prev => `${prev}\n\nUnknown login error. Try using the "Test Direct API" button.`);
       }
     } catch (error) {
       console.error('Exception during login:', error);
       setError('An error occurred during login');
-      setDebugInfo(prev => `${prev}\n\nError: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // For testing direct API access
-  const testDirectApiLogin = async () => {
-    try {
-      setIsLoading(true);
-      setError('');
-      setDebugInfo('Testing direct API call...');
-      
-      // In browser context, we use the NEXT_PUBLIC_API_URL which should point to the publicly 
-      // accessible URL for the backend (e.g., http://localhost:8000)
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-      setDebugInfo(`Using API URL: ${apiUrl}`);
-      
-      // Create FormData object
-      const formData = new URLSearchParams();
-      formData.append('username', mobileNumber);
-      formData.append('password', password);
-      
-      setDebugInfo(prev => `${prev}\n\nSending request with form data: username=${mobileNumber}, password=***`);
-      
-      // Make the request
-      const response = await fetch(`${apiUrl}/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: formData.toString(),
-      });
-      
-      const data = await response.json();
-      setDebugInfo(prev => `${prev}\n\nResponse status: ${response.status}\n${JSON.stringify(data, null, 2)}`);
-      
-      if (response.ok && data.access_token) {
-        setError('');
-        setDebugInfo(prev => `${prev}\n\nDirect API call successful! Token received.`);
-        setDebugInfo(prev => `${prev}\n\nThis confirms your credentials are correct.`);
-      } else {
-        setError(`Direct API call failed: ${data.detail || 'Unknown error'}`);
-      }
-    } catch (error: any) {
-      console.error('Direct API error:', error);
-      setError('Direct API call error');
-      
-      let errorDetails = 'Unknown error';
-      if (error instanceof Error) {
-        errorDetails = error.message;
-        if ('response' in error && error.response) {
-          try {
-            // @ts-ignore - We're dynamically checking for response property
-            errorDetails += `\nStatus: ${error.response.status}\nData: ${JSON.stringify(error.response.data, null, 2)}`;
-          } catch (e) {
-            // Ignore serialization errors
-          }
-        }
-      }
-      
-      setDebugInfo(`Error: ${errorDetails}`);
     } finally {
       setIsLoading(false);
     }
@@ -202,15 +124,6 @@ export default function Login() {
             >
               {isLoading ? 'Loading...' : 'Login'}
             </button>
-            
-            <button
-              type="button"
-              onClick={testDirectApiLogin}
-              disabled={isLoading}
-              className="relative flex justify-center w-full px-4 py-2 text-sm font-medium text-indigo-600 bg-white border border-indigo-300 rounded-md group hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-100"
-            >
-              Test Direct API
-            </button>
           </div>
         </form>
         
@@ -222,12 +135,6 @@ export default function Login() {
             </Link>
           </p>
         </div>
-        
-        {debugInfo && (
-          <div className="mt-4 p-3 bg-gray-100 rounded text-xs overflow-auto max-h-64">
-            <pre>{debugInfo}</pre>
-          </div>
-        )}
       </div>
     </div>
   );

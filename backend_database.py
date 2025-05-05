@@ -18,6 +18,7 @@ import os
 from datetime import datetime
 import logging
 from sqlalchemy import create_engine
+from pymongo import MongoClient
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -392,7 +393,6 @@ async def test_connection(
             # For MongoDB connections
             try:
                 # Create a temporary client
-                from pymongo import MongoClient
                 client = MongoClient(db_connection.connection_string, serverSelectionTimeoutMS=5000)
                 
                 # Force a connection to verify

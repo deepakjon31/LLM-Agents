@@ -7,11 +7,13 @@ from passlib.context import CryptContext
 import os
 import logging
 from typing import Optional
+import hashlib
 
 from src.common.db.connection import get_db
-from src.common.db.schema import User
-from src.common.pydantic_models.user_models import UserCreate, UserResponse, Token, UserUpdate
+from src.common.db.schema import User, Role, Permission
+from src.common.pydantic_models.user_models import UserCreate, UserResponse, Token, UserUpdate, UserWithPermissions
 from src.common.dependencies import get_current_user, oauth2_scheme, SECRET_KEY, ALGORITHM
+from src.common.config import AuthConfig
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -23,26 +25,20 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # JWT settings moved to dependencies.py, but keep expire minutes here if specific to auth routes
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
+ACCESS_TOKEN_EXPIRE_MINUTES = AuthConfig.ACCESS_TOKEN_EXPIRE_MINUTES
 
-# Improved password verification with fallback
+# Password verification
 def verify_password(plain_password, hashed_password):
     try:
-        logger.info(f"Attempting password verification with bcrypt")
+        logger.info("Attempting password verification with bcrypt")
         return pwd_context.verify(plain_password, hashed_password)
     except Exception as e:
         logger.error(f"Error in password verification: {str(e)}")
-        # Direct fallback comparison for test users
-        if plain_password == "test123" and hashed_password == "$2b$12$5U6jNwoBGmgiughPF4blme/uO6ELMTJO59Y2LveLktQ5Gs2IPcCo6":
-            logger.info("Using fallback verification for test user 8050518293")
-            return True
-        if plain_password == "test123" and hashed_password == "$2b$12$grINss2vennDhjWRZCxN5u4qr4FWgxK7ypIDtjC5UcjoPnZiLj1A2":
-            logger.info("Using fallback verification for test user 8050518292")
-            return True
-        if plain_password == "Password1" and hashed_password == "$2b$12$LWB9dMgmz1JuaC4/LiDkHeJfOhZCkoPJgHxoYAugKjxQhEw5ncj76":
-            logger.info("Using fallback verification for test user postgres")
-            return True
-        logger.error("Password verification failed")
+        # Check if it's a SHA-256 fallback hash (for compatibility with older passwords)
+        if hashed_password and hashed_password.startswith("$sha256$"):
+            logger.info("Using SHA-256 fallback verification")
+            hashed = hashlib.sha256(plain_password.encode()).hexdigest()
+            return hashed_password == f"$sha256${hashed}"
         return False
 
 def get_password_hash(password):
@@ -50,8 +46,11 @@ def get_password_hash(password):
         return pwd_context.hash(password)
     except Exception as e:
         logger.error(f"Error in password hashing: {str(e)}")
-        # Return a known good hash for test123 as fallback
-        return "$2b$12$5U6jNwoBGmgiughPF4blme/uO6ELMTJO59Y2LveLktQ5Gs2IPcCo6"
+        # Use a simple hash algorithm as fallback
+        logger.info("Using fallback SHA-256 password hashing")
+        hashed = hashlib.sha256(password.encode()).hexdigest()
+        # Format to look like bcrypt for compatibility
+        return f"$sha256${hashed}"
 
 # Keep DB interactions needed specifically for auth routes
 def get_user_by_mobile(db: Session, mobile_number: str):
@@ -66,7 +65,28 @@ def get_user_by_mobile(db: Session, mobile_number: str):
         logger.error(f"Database error in get_user_by_mobile: {str(e)}")
         return None
 
-# get_user_by_id is now in dependencies.py
+# Get user's permissions based on role
+def get_user_permissions(db: Session, user_id: int):
+    try:
+        # Get user with role
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user or not user.role_id:
+            return []
+            
+        # Get role with permissions
+        role = db.query(Role).filter(Role.id == user.role_id).first()
+        if not role:
+            return []
+            
+        # Get permissions for role
+        permissions = db.query(Permission).join(
+            Role.permissions
+        ).filter(Role.id == role.id).all()
+        
+        return [perm.name for perm in permissions]
+    except Exception as e:
+        logger.error(f"Error getting user permissions: {str(e)}")
+        return []
 
 def authenticate_user(db: Session, mobile_number: str, password: str):
     logger.info(f"Authenticating user with mobile: {mobile_number}")
@@ -76,7 +96,7 @@ def authenticate_user(db: Session, mobile_number: str, password: str):
         logger.warning(f"User not found with mobile number: {mobile_number}")
         return False
     
-    logger.info(f"User found: {user.id} - {user.mobile_number}, hash: {user.password_hash}")
+    logger.info(f"User found: {user.id} - {user.mobile_number}")
     
     if not verify_password(password, user.password_hash):
         logger.warning(f"Password verification failed for user: {user.id}")
@@ -104,8 +124,6 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
         logger.error(f"Error creating JWT token: {str(e)}")
         raise
 
-# get_current_user function moved to dependencies.py
-
 @router.post("/signup", response_model=UserResponse)
 def signup(user: UserCreate, db: Session = Depends(get_db)):
     logger.info(f"Signup attempt for mobile: {user.mobile_number}")
@@ -116,10 +134,39 @@ def signup(user: UserCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Mobile number already registered")
     
     hashed_password = get_password_hash(user.password)
+    
+    # Get the default 'user' role
+    default_role = db.query(Role).filter(Role.name == AuthConfig.USER_ROLE_NAME).first()
+    role_id = None
+    
+    if default_role:
+        role_id = default_role.id
+        logger.info(f"Found default '{AuthConfig.USER_ROLE_NAME}' role with id: {role_id}")
+    else:
+        # If no default role exists, create one or use admin as fallback
+        admin_role = db.query(Role).filter(Role.name == AuthConfig.ADMIN_ROLE_NAME).first()
+        if admin_role:
+            role_id = admin_role.id
+            logger.info(f"Default '{AuthConfig.USER_ROLE_NAME}' role not found, using '{AuthConfig.ADMIN_ROLE_NAME}' role with id: {role_id}")
+        else:
+            # Create a new role if neither user nor admin exists
+            try:
+                new_role = Role(name=AuthConfig.USER_ROLE_NAME, description="Default user role")
+                db.add(new_role)
+                db.commit()
+                db.refresh(new_role)
+                role_id = new_role.id
+                logger.info(f"Created new '{AuthConfig.USER_ROLE_NAME}' role with id: {role_id}")
+            except Exception as e:
+                logger.error(f"Error creating default role: {str(e)}")
+                # Continue without role if we can't create one
+                logger.warning("Proceeding with user creation without role")
+    
     db_user = User(
         mobile_number=user.mobile_number, 
         password_hash=hashed_password,
-        email=user.email
+        email=user.email,
+        role_id=role_id
     )
     
     try:
@@ -139,8 +186,7 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     username = form_data.username
     password = form_data.password
     
-    logger.info(f"Login attempt with username: {username}, password length: {len(password)}")
-    logger.info(f"Form data received: {form_data.__dict__}")
+    logger.info(f"Login attempt with username: {username}")
     
     # Standard authentication
     try:
@@ -174,10 +220,26 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-@router.get("/me", response_model=UserResponse)
-def read_users_me(current_user: User = Depends(get_current_user)):
+@router.get("/me", response_model=UserWithPermissions)
+def read_users_me(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     logger.info(f"Getting user profile for user id: {current_user.id}")
-    return current_user
+    
+    # Get user permissions
+    permissions = get_user_permissions(db, current_user.id)
+    
+    # Create response with role information
+    response = UserWithPermissions(
+        id=current_user.id,
+        mobile_number=current_user.mobile_number,
+        email=current_user.email,
+        role_id=current_user.role_id,
+        role=current_user.role,
+        created_at=current_user.created_at,
+        updated_at=current_user.updated_at,
+        permissions=permissions
+    )
+    
+    return response
 
 @router.put("/me", response_model=UserResponse)
 def update_user(

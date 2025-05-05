@@ -8,9 +8,47 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Role models
+class RoleBase(BaseModel):
+    name: str
+    description: Optional[str] = None
 
+class RoleCreate(RoleBase):
+    pass
+
+class RoleUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+
+class RoleResponse(RoleBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+# Permission models
+class PermissionBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    resource: str
+    action: str
+
+class PermissionCreate(PermissionBase):
+    pass
+
+class PermissionResponse(PermissionBase):
+    id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+# User models
 class UserBase(BaseModel):
     mobile_number: str
+    email: Optional[EmailStr] = None
     
     @validator('mobile_number')
     def validate_mobile_number(cls, v):
@@ -25,7 +63,6 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str
-    email: Optional[EmailStr] = None
     
     @validator('password')
     def validate_password(cls, v):
@@ -54,6 +91,7 @@ class UserLogin(BaseModel):
 class UserUpdate(BaseModel):
     email: Optional[EmailStr] = None
     password: Optional[str] = None
+    role_id: Optional[int] = None
     
     @validator('password')
     def validate_password(cls, v):
@@ -73,11 +111,12 @@ class UserUpdate(BaseModel):
         return v
 
 
-class UserResponse(BaseModel):
+class UserResponse(UserBase):
     id: int
-    mobile_number: str
-    email: Optional[str] = None
+    role_id: Optional[int] = None
+    role: Optional[RoleResponse] = None
     created_at: datetime
+    updated_at: datetime
     
     class Config:
         from_attributes = True
@@ -109,4 +148,12 @@ class UserProfileUpdate(BaseModel):
     full_name: Optional[str] = None
     profile_picture: Optional[str] = None
     bio: Optional[str] = None
-    preferences: Optional[dict] = None 
+    preferences: Optional[dict] = None
+
+# User with permissions
+class UserWithPermissions(UserResponse):
+    permissions: List[str] = []
+
+# Role with permissions
+class RoleWithPermissions(RoleResponse):
+    permissions: List[PermissionResponse] = [] 

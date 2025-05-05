@@ -4,12 +4,21 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { toast } from 'react-hot-toast';
+import { FaUserShield, FaUserCog, FaUserTie, FaUser } from 'react-icons/fa';
 
 interface UserProfile {
+  id?: number;
   email?: string;
+  mobile_number?: string;
   full_name?: string;
   profile_picture?: string;
   bio?: string;
+  role?: {
+    id: number;
+    name: string;
+    description: string;
+  };
+  permissions?: string[];
   preferences?: Record<string, any>;
 }
 
@@ -88,6 +97,19 @@ export default function ProfilePage() {
     }
   };
 
+  const getRoleIcon = (roleName?: string) => {
+    switch (roleName) {
+      case 'admin':
+        return <FaUserShield className="text-red-500 w-5 h-5" />;
+      case 'developer':
+        return <FaUserCog className="text-blue-500 w-5 h-5" />;
+      case 'analyst':
+        return <FaUserTie className="text-green-500 w-5 h-5" />;
+      default:
+        return <FaUser className="text-gray-500 w-5 h-5" />;
+    }
+  };
+
   if (isLoading) {
     return <div className="flex justify-center items-center min-h-screen">
       <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
@@ -96,9 +118,62 @@ export default function ProfilePage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">Profile Settings</h1>
+      <div className="flex items-center justify-between mb-8">
+        <h1 className="text-3xl font-bold">Profile Settings</h1>
+        
+        {profile?.role && (
+          <div className="flex items-center px-4 py-2 bg-gray-100 rounded-full">
+            {getRoleIcon(profile.role.name)}
+            <span className="ml-2 font-medium capitalize">{profile.role.name}</span>
+          </div>
+        )}
+      </div>
       
-      <form onSubmit={handleSubmit} className="max-w-2xl">
+      <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+        <h2 className="text-xl font-semibold mb-4">Account Information</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <p className="text-sm text-gray-500">User ID</p>
+            <p className="font-medium">{profile?.id}</p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-500">Mobile Number</p>
+            <p className="font-medium">{profile?.mobile_number || 'Not set'}</p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-500">Email</p>
+            <p className="font-medium">{profile?.email || 'Not set'}</p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-500">Role</p>
+            <div className="flex items-center">
+              {profile?.role ? (
+                <>
+                  {getRoleIcon(profile.role.name)}
+                  <span className="ml-2 font-medium capitalize">{profile.role.name}</span>
+                </>
+              ) : 'No role assigned'}
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {profile?.permissions && profile.permissions.length > 0 && (
+        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+          <h2 className="text-xl font-semibold mb-4">Permissions</h2>
+          <div className="flex flex-wrap gap-2">
+            {profile.permissions.map((permission, i) => (
+              <span key={i} className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
+                {permission.replace(/_/g, ' ')}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+      
+      <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-md p-6">
+        <h2 className="text-xl font-semibold mb-4">Edit Profile</h2>
+        
         <div className="mb-8">
           <div className="relative w-32 h-32 rounded-full overflow-hidden mb-4">
             {profile?.profile_picture ? (

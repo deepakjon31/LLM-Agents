@@ -6,8 +6,9 @@ import { useSession } from 'next-auth/react';
 import { 
   FaPlus, FaEdit, FaTrash, FaCheck, FaTimes, FaLock, FaFilter 
 } from 'react-icons/fa';
+import toast from 'react-hot-toast';
 
-type Permission = {
+interface Permission {
   id: number;
   name: string;
   description: string | null;
@@ -15,7 +16,7 @@ type Permission = {
   action: string;
   created_at: string;
   updated_at: string;
-};
+}
 
 const RESOURCES = ['users', 'roles', 'permissions', 'documents', 'databases'];
 const ACTIONS = ['create', 'read', 'update', 'delete', 'manage'];
@@ -39,6 +40,8 @@ const PermissionManagement: React.FC = () => {
     action: ''
   });
 
+  const [resources, setResources] = useState<string[]>([]);
+
   const fetchPermissions = async () => {
     setIsLoading(true);
     setError(null);
@@ -54,6 +57,10 @@ const PermissionManagement: React.FC = () => {
       );
       
       setPermissions(response.data);
+      
+      // Extract unique resources for filtering
+      const uniqueResources = Array.from(new Set(response.data.map((p: Permission) => p.resource)));
+      setResources(uniqueResources as string[]);
     } catch (err) {
       console.error('Error fetching permissions:', err);
       setError('Failed to load permissions');
@@ -98,16 +105,31 @@ const PermissionManagement: React.FC = () => {
     });
   };
 
-  const handleCreatePermission = () => {
-    setSelectedPermission(null);
-    setIsEditMode(false);
-    setIsCreateMode(true);
-    setFormData({
-      name: '',
-      description: '',
-      resource: '',
-      action: ''
-    });
+  const handleCreatePermission = async () => {
+    try {
+      const response = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/admin/permissions`,
+        formData,
+        {
+          headers: {
+            'Authorization': `Bearer ${(session as any)?.accessToken || ''}`
+          }
+        }
+      );
+      
+      toast.success('Permission created successfully');
+      setIsCreateMode(false);
+      setFormData({
+        name: '',
+        description: '',
+        resource: '',
+        action: ''
+      });
+      await fetchPermissions();
+    } catch (err) {
+      console.error('Error creating permission:', err);
+      toast.error('Failed to create permission');
+    }
   };
 
   const handleEditToggle = () => {
@@ -124,26 +146,8 @@ const PermissionManagement: React.FC = () => {
     
     try {
       if (isCreateMode) {
-        // Create new permission
-        const response = await axios.post(
-          `${process.env.NEXT_PUBLIC_API_URL}/admin/permissions`,
-          formData,
-          {
-            headers: {
-              'Authorization': `Bearer ${(session as any)?.accessToken || ''}`
-            }
-          }
-        );
-        
-        // Refresh permissions
-        await fetchPermissions();
-        setIsCreateMode(false);
-        
-        // Select the newly created permission
-        handlePermissionSelect(response.data.id);
-        
+        await handleCreatePermission();
       } else if (isEditMode && selectedPermission) {
-        // Update existing permission
         await axios.put(
           `${process.env.NEXT_PUBLIC_API_URL}/admin/permissions/${selectedPermission.id}`,
           formData,
@@ -154,7 +158,6 @@ const PermissionManagement: React.FC = () => {
           }
         );
         
-        // Refresh permissions and permission data
         await fetchPermissions();
         await handlePermissionSelect(selectedPermission.id);
         setIsEditMode(false);
@@ -166,6 +169,10 @@ const PermissionManagement: React.FC = () => {
   };
 
   const handleDeletePermission = async (permissionId: number) => {
+    if (!confirm('Are you sure you want to delete this permission?')) {
+      return;
+    }
+
     try {
       await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/admin/permissions/${permissionId}`, {
         headers: {
@@ -179,6 +186,7 @@ const PermissionManagement: React.FC = () => {
       }
       setShowDeleteConfirm(null);
       
+      toast.success('Permission deleted successfully');
     } catch (err) {
       console.error('Error deleting permission:', err);
       setError('Failed to delete permission');
@@ -204,7 +212,17 @@ const PermissionManagement: React.FC = () => {
       
       <div className="flex justify-between items-center mb-4">
         <button
-          onClick={handleCreatePermission}
+          onClick={() => {
+            setSelectedPermission(null);
+            setIsCreateMode(true);
+            setIsEditMode(false);
+            setFormData({
+              name: '',
+              description: '',
+              resource: '',
+              action: ''
+            });
+          }}
           className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 flex items-center"
         >
           <FaPlus className="mr-2" />
@@ -222,7 +240,7 @@ const PermissionManagement: React.FC = () => {
             className="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
             <option value="">All Resources</option>
-            {RESOURCES.map(resource => (
+            {resources.map(resource => (
               <option key={resource} value={resource}>{resource}</option>
             ))}
           </select>
@@ -534,7 +552,17 @@ const PermissionManagement: React.FC = () => {
               <p className="text-gray-500 mb-2">Select a permission to view details</p>
               <p className="text-gray-400 text-sm">or</p>
               <button
-                onClick={handleCreatePermission}
+                onClick={() => {
+                  setSelectedPermission(null);
+                  setIsCreateMode(true);
+                  setIsEditMode(false);
+                  setFormData({
+                    name: '',
+                    description: '',
+                    resource: '',
+                    action: ''
+                  });
+                }}
                 className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center"
               >
                 <FaPlus className="mr-2" />
