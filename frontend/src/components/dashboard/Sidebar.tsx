@@ -1,19 +1,19 @@
 'use client';
 
 import React from 'react';
-import { FaDatabase, FaFileAlt, FaHistory, FaFolderOpen, FaSignOutAlt, FaServer, FaChevronLeft, FaChevronRight, FaComments, FaUsersCog } from 'react-icons/fa';
+import { FaDatabase, FaFileAlt, FaHistory, FaFolderOpen, FaSignOutAlt, FaServer, FaChevronLeft, FaChevronRight, FaComments, FaUsersCog, FaUpload } from 'react-icons/fa';
 import { useSession } from 'next-auth/react';
 import { sessionHasAdminAccess } from '@/utils/adminUtils';
 
-type ActiveTab = 'chat' | 'history' | 'documents' | 'database-connections' | 'admin';
-
-interface SidebarProps {
+type SidebarProps = {
   activeTab: ActiveTab;
   setActiveTab: (tab: ActiveTab) => void;
   onSignOut: () => void;
   isExpanded: boolean;
   onToggleExpand: () => void;
-}
+};
+
+type ActiveTab = 'chat' | 'history' | 'data-ingestion' | 'admin';
 
 const Sidebar: React.FC<SidebarProps> = ({ 
   activeTab, 
@@ -30,8 +30,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const navItems = [
     { id: 'chat', label: 'AI Chatbot', icon: <FaComments /> },
     { id: 'history', label: 'Chat History', icon: <FaHistory /> },
-    { id: 'documents', label: 'Manage Documents', icon: <FaFolderOpen /> },
-    { id: 'database-connections', label: 'Database Connections', icon: <FaServer /> },
+    { id: 'data-ingestion', label: 'Data Ingestion', icon: <FaUpload /> },
   ];
 
   // Add admin link for users with admin role

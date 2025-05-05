@@ -6,105 +6,99 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Sidebar from './Sidebar';
 import UnifiedChat from '../chat/UnifiedChat';
 import History from '../history/History';
-import DocumentUpload from '../documents/DocumentUpload';
-import DocumentList from '../documents/DocumentList';
-import DatabaseConnections from '../database/DatabaseConnections';
 import AdminPanel from '../admin/AdminPanel';
-import { FaBars, FaTimes, FaDatabase, FaFileAlt, FaHistory, FaFolderOpen, FaServer, FaSignOutAlt, FaChevronRight } from 'react-icons/fa';
+import { FaBars, FaTimes, FaHistory, FaUpload, FaSignOutAlt } from 'react-icons/fa';
+import dynamic from 'next/dynamic';
 
-type ActiveTab = 'chat' | 'history' | 'documents' | 'database-connections' | 'admin';
+type ActiveTab = 'chat' | 'history' | 'data-ingestion' | 'admin';
+
+// Import the DataIngestion component dynamically to fix module not found error
+const DataIngestion = dynamic(() => import('../data/DataIngestion'), {
+  loading: () => <p>Loading data ingestion...</p>,
+});
 
 export default function Dashboard() {
   const { data: session } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
+  
   const [activeTab, setActiveTab] = useState<ActiveTab>('chat');
+  const [sidebarVisible, setSidebarVisible] = useState(true);
   const [documentRefreshTrigger, setDocumentRefreshTrigger] = useState(0);
-  const [sidebarVisible, setSidebarVisible] = useState(() => {
-    // Initialize from localStorage if available, otherwise default to true
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('sidebarVisible');
-      return saved !== null ? saved === 'true' : true;
-    }
-    return true;
-  });
-
-  useEffect(() => {
-    // Check for 'tab' parameter in URL
-    const tabParam = searchParams.get('tab');
-    if (tabParam && ['chat', 'history', 'documents', 'database-connections', 'admin'].includes(tabParam)) {
-      setActiveTab(tabParam as ActiveTab);
-    } else if (tabParam && ['sql-chat', 'document-chat'].includes(tabParam)) {
-      // Handle legacy URLs
-      setActiveTab('chat');
-    }
-  }, [searchParams]);
-
-  useEffect(() => {
-    // Save sidebar state to localStorage whenever it changes
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('sidebarVisible', sidebarVisible.toString());
-    }
-  }, [sidebarVisible]);
-
-  // Add responsive sidebar handling
-  useEffect(() => {
-    const handleResize = () => {
-      // No actions needed here, just keeping the event listener
-    };
-
-    // Add event listener
-    window.addEventListener('resize', handleResize);
-    
-    // Cleanup
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  const handleSignOut = async () => {
-    await signOut({ redirect: false });
-    router.push('/login');
-  };
-
+  
+  // Handle document upload success - trigger refresh
   const handleDocumentUploadSuccess = () => {
-    // Increment the trigger to cause DocumentList to refresh
     setDocumentRefreshTrigger(prev => prev + 1);
   };
-
+  
+  useEffect(() => {
+    // Get the tab from URL query
+    const tabParam = searchParams?.get('tab') as ActiveTab | null;
+    if (tabParam) {
+      setActiveTab(tabParam);
+    }
+    
+    // Handle window resize for mobile
+    const handleResize = () => {
+      if (window.innerWidth < 640) { // sm breakpoint
+        setSidebarVisible(false);
+      } else {
+        setSidebarVisible(true);
+      }
+    };
+    
+    // Set initial state
+    handleResize();
+    
+    // Listen for resize events
+    window.addEventListener('resize', handleResize);
+    
+    // Clean up
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [searchParams]);
+  
+  useEffect(() => {
+    // Redirect to login if no session
+    if (!session) {
+      router.push('/login');
+    }
+  }, [session, router]);
+  
+  // Handle sign out
+  const handleSignOut = async () => {
+    await signOut({ callbackUrl: '/login' });
+  };
+  
   const handleTabChange = (tab: ActiveTab) => {
     setActiveTab(tab);
     // Update URL to reflect the current tab
     router.push(`/dashboard?tab=${tab}`, { scroll: false });
   };
-
+  
   const toggleSidebar = () => {
     const newState = !sidebarVisible;
     setSidebarVisible(newState);
     console.log('Toggling sidebar:', sidebarVisible, '->', newState);
     // No need to dispatch resize event as it could cause an infinite loop
   };
-
+  
   const renderContent = () => {
     switch (activeTab) {
       case 'chat':
         return <UnifiedChat />;
       case 'history':
         return <History />;
-      case 'documents':
-        return (
-          <div className="space-y-6">
-            <DocumentUpload onUploadSuccess={handleDocumentUploadSuccess} />
-            <DocumentList refreshTrigger={documentRefreshTrigger} />
-          </div>
-        );
-      case 'database-connections':
-        return <DatabaseConnections />;
+      case 'data-ingestion':
+        return <DataIngestion onDocumentUploadSuccess={handleDocumentUploadSuccess} documentRefreshTrigger={documentRefreshTrigger} />;
       case 'admin':
         return <AdminPanel />;
       default:
         return <UnifiedChat />;
     }
   };
-
+  
   return (
     <div className="flex h-screen bg-gray-100">
       {/* Sidebar */}
@@ -134,34 +128,28 @@ export default function Dashboard() {
               <h1 className="text-xl font-semibold text-gray-800">
                 {activeTab === 'chat' && 'AI Chatbot'}
                 {activeTab === 'history' && 'Chat History'}
-                {activeTab === 'documents' && 'Manage Documents'}
-                {activeTab === 'database-connections' && 'Database Connections'}
+                {activeTab === 'data-ingestion' && 'Data Ingestion'}
                 {activeTab === 'admin' && 'Admin Panel'}
               </h1>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="flex flex-col items-end">
-                <span className="text-sm text-gray-600">
-                  {session?.user?.email || session?.user?.name || 'User'}
-                </span>
-                {session?.user?.role && (
-                  <span className="text-xs px-2 py-1 rounded-full bg-indigo-100 text-indigo-800 font-medium">
-                    {session.user.role}
-                  </span>
-                )}
-              </div>
-              <button
-                onClick={handleSignOut}
-                className="ml-4 p-2 rounded-full bg-gray-200 text-gray-700 hover:bg-gray-300"
-                title="Sign out"
-              >
-                <FaSignOutAlt size={16} />
-              </button>
+            
+            <div className="flex items-center">
+              {session?.user && (
+                <div className="text-sm text-right">
+                  <div className="font-medium text-gray-900">
+                    {session.user.name || (session.user as any)?.mobile_number || 'User'}
+                  </div>
+                  <div className="text-gray-500 text-xs">
+                    {session.user.role === 'admin' ? 'Administrator' : 'User'}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </header>
         
-        <main className="flex-1 overflow-auto bg-gray-50 p-4 md:p-6">
+        {/* Main content */}
+        <main className="flex-1 overflow-auto p-4">
           {renderContent()}
         </main>
       </div>
