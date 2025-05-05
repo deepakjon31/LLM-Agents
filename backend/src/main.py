@@ -11,6 +11,8 @@ from src.apis.profile import router as profile_router
 from src.apis.documents import router as documents_router
 from src.apis.database import router as database_router
 from src.apis.agents import router as agents_router
+# Import admin router
+from src.apis.admin import router as admin_router
 # Fix the router name to match what's defined in api.py
 from src.agents.mcp_helpers.api import mcp_router
 from src.common.db.connection import engine
@@ -62,6 +64,14 @@ app.include_router(documents_router)
 app.include_router(database_router)
 app.include_router(agents_router)
 app.include_router(mcp_router)
+
+# Include admin router with explicit prefix
+logger.info("Attempting to include admin router...")
+try:
+    app.include_router(admin_router, prefix="/admin")
+    logger.info("✅ Admin router included successfully.")
+except Exception as e:
+    logger.error(f"❌ Failed to include admin router: {e}")
 
 @app.get("/", response_model=Dict[str, str])
 async def root():

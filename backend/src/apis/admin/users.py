@@ -2,14 +2,19 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime
+import logging
 
 from src.common.db.connection import get_db
-from src.common.db.schema import User, Role, UserRole, Permission, RolePermission
+from src.common.db.schema import User, Role, Permission
 from src.common.pydantic_models.admin_models import UserListItem, UserRoleAssignment
-from src.common.pydantic_models.user_models import UserUpdate, UserRoleResponse
+from src.common.pydantic_models.user_models import UserUpdate, UserResponse, UserCreate
 from src.common.pydantic_models.admin_models import RoleResponse, PermissionResponse
 from src.apis.admin.middlewares import get_current_admin
 from src.apis.auth import get_password_hash
+
+# Add a log to verify that this module is being imported
+logger = logging.getLogger(__name__)
+logger.info("ADMIN USERS MODULE LOADED")
 
 router = APIRouter()
 
@@ -23,6 +28,7 @@ async def list_users(
     db: Session = Depends(get_db)
 ):
     """List all users with pagination and optional search"""
+    logger.info("ADMIN LIST USERS ENDPOINT CALLED")
     query = db.query(User)
     
     if search:
@@ -34,7 +40,50 @@ async def list_users(
     users = query.offset(skip).limit(limit).all()
     return users
 
-@router.get("/users/{user_id}", response_model=UserRoleResponse)
+@router.post("/users", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+async def create_user(
+    user_data: UserCreate,
+    current_admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Create a new user (admin only)"""
+    logger.info(f"Admin creating new user with mobile: {user_data.mobile_number}")
+    logger.info(f"Admin creation payload: {user_data}")
+    
+    # Check if user with the mobile number already exists
+    existing_user = db.query(User).filter(User.mobile_number == user_data.mobile_number).first()
+    if existing_user:
+        logger.warning(f"Mobile number already registered: {user_data.mobile_number}")
+        raise HTTPException(status_code=400, detail="Mobile number already registered")
+    
+    # Hash the password
+    hashed_password = get_password_hash(user_data.password)
+    
+    # Get the default user role
+    default_role = db.query(Role).filter(Role.name == "user").first()
+    
+    # Create the new user
+    new_user = User(
+        mobile_number=user_data.mobile_number,
+        password_hash=hashed_password,
+        email=user_data.email,
+        is_active=True,
+        is_admin=user_data.is_admin if hasattr(user_data, 'is_admin') else False,
+        role_id=default_role.id if default_role else None
+    )
+    
+    try:
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+        logger.info(f"Admin created new user with ID: {new_user.id}")
+        return new_user
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error creating user: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating user: {str(e)}")
+
+@router.get("/users/{user_id}", response_model=UserResponse)
 async def get_user(
     user_id: int,
     current_admin: User = Depends(get_current_admin),
@@ -45,24 +94,12 @@ async def get_user(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    # Get user roles
-    user_roles = db.query(UserRole, Role).join(Role).filter(UserRole.user_id == user_id).all()
-    roles = [{"id": role.id, "name": role.name} for _, role in user_roles]
-    
-    # Create response
-    response = UserRoleResponse(
-        id=user.id,
-        mobile_number=user.mobile_number,
-        email=user.email,
-        is_active=user.is_active,
-        is_admin=user.is_admin,
-        created_at=user.created_at,
-        roles=roles
-    )
-    
-    return response
+    # UserResponse expects the User object directly and handles serialization with from_attributes
+    # Ensure the roles are loaded if needed by the UserResponse model
+    # (They should be loaded by default due to the relationship definition, but check if issues arise)
+    return user # Return the user object directly
 
-@router.put("/users/{user_id}", response_model=UserRoleResponse)
+@router.put("/users/{user_id}", response_model=UserResponse)
 async def update_user(
     user_id: int,
     user_data: UserUpdate,
@@ -74,38 +111,19 @@ async def update_user(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    if user_data.email is not None:
-        user.email = user_data.email
+    update_data = user_data.dict(exclude_unset=True)
     
-    if user_data.password is not None:
-        user.password_hash = get_password_hash(user_data.password)
-    
-    if user_data.is_active is not None:
-        user.is_active = user_data.is_active
-    
-    if user_data.is_admin is not None:
-        user.is_admin = user_data.is_admin
-    
+    if "password" in update_data:
+        update_data["password_hash"] = get_password_hash(update_data.pop("password"))
+        
+    for key, value in update_data.items():
+        setattr(user, key, value)
+        
     user.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(user)
     
-    # Get user roles
-    user_roles = db.query(UserRole, Role).join(Role).filter(UserRole.user_id == user_id).all()
-    roles = [{"id": role.id, "name": role.name} for _, role in user_roles]
-    
-    # Create response
-    response = UserRoleResponse(
-        id=user.id,
-        mobile_number=user.mobile_number,
-        email=user.email,
-        is_active=user.is_active,
-        is_admin=user.is_admin,
-        created_at=user.created_at,
-        roles=roles
-    )
-    
-    return response
+    return user # Return the updated user object directly
 
 @router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user(
@@ -140,8 +158,8 @@ async def assign_roles_to_user(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    # Clear existing roles
-    db.query(UserRole).filter(UserRole.user_id == user_id).delete()
+    # Clear existing roles by removing all existing relationships
+    user.roles = []
     
     # Add new roles
     for role_id in assignment.role_ids:
@@ -150,11 +168,8 @@ async def assign_roles_to_user(
         if not role:
             raise HTTPException(status_code=404, detail=f"Role with ID {role_id} not found")
         
-        user_role = UserRole(
-            user_id=user_id,
-            role_id=role_id
-        )
-        db.add(user_role)
+        # Add role to user's roles collection
+        user.roles.append(role)
     
     db.commit()
     return {"message": "Roles assigned successfully"}
@@ -171,12 +186,8 @@ async def get_user_roles(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    # Get roles
-    roles = db.query(Role).join(
-        UserRole, UserRole.role_id == Role.id
-    ).filter(UserRole.user_id == user_id).all()
-    
-    return roles
+    # Get roles directly from the user.roles relationship
+    return user.roles
 
 @router.get("/users/{user_id}/permissions", response_model=List[PermissionResponse])
 async def get_user_permissions(
@@ -191,12 +202,16 @@ async def get_user_permissions(
         raise HTTPException(status_code=404, detail="User not found")
     
     # Get permissions from all user roles
-    permissions = db.query(Permission).distinct().join(
-        RolePermission, RolePermission.permission_id == Permission.id
-    ).join(
-        Role, Role.id == RolePermission.role_id
-    ).join(
-        UserRole, UserRole.role_id == Role.id
-    ).filter(UserRole.user_id == user_id).all()
+    permissions = []
+    for role in user.roles:
+        permissions.extend(role.permissions)
     
-    return permissions 
+    # Remove duplicates
+    unique_permissions = []
+    permission_ids = set()
+    for permission in permissions:
+        if permission.id not in permission_ids:
+            permission_ids.add(permission.id)
+            unique_permissions.append(permission)
+            
+    return unique_permissions 

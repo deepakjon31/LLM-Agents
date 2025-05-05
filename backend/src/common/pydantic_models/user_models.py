@@ -63,6 +63,7 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str
+    is_admin: Optional[bool] = False
     
     @validator('password')
     def validate_password(cls, v):

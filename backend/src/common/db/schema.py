@@ -11,6 +11,15 @@ role_permission = Table(
     Column("permission_id", Integer, ForeignKey("permissions.id", ondelete="CASCADE"), primary_key=True)
 )
 
+# User and Role association table (many-to-many)
+user_role = Table(
+    "user_role",
+    Base.metadata,
+    Column("user_id", Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+    Column("role_id", Integer, ForeignKey("roles.id", ondelete="CASCADE"), primary_key=True),
+    Column("created_at", DateTime, default=datetime.utcnow)
+)
+
 class Role(Base):
     __tablename__ = "roles"
     
@@ -20,7 +29,10 @@ class Role(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    users = relationship("User", back_populates="role")
+    # Direct relationship for primary role
+    primary_users = relationship("User", back_populates="role")
+    # Many-to-many relationship for additional roles
+    users = relationship("User", secondary=user_role, back_populates="roles")
     permissions = relationship("Permission", secondary=role_permission, back_populates="roles")
 
 class Permission(Base):
@@ -35,6 +47,20 @@ class Permission(Base):
     
     roles = relationship("Role", secondary=role_permission, back_populates="permissions")
 
+# UserRole class for easier operations in admin module
+class UserRole:
+    """Non-SQLAlchemy class to represent user-role relationships"""
+    def __init__(self, user_id, role_id):
+        self.user_id = user_id
+        self.role_id = role_id
+
+# RolePermission class for easier operations in admin module
+class RolePermission:
+    """Non-SQLAlchemy class to represent role-permission relationships"""
+    def __init__(self, role_id, permission_id):
+        self.role_id = role_id
+        self.permission_id = permission_id
+
 class User(Base):
     __tablename__ = "users"
     
@@ -43,10 +69,15 @@ class User(Base):
     password_hash = Column(String(255))
     email = Column(String(255), nullable=True)
     role_id = Column(Integer, ForeignKey("roles.id"), nullable=True)
+    is_active = Column(Boolean, default=True)
+    is_admin = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    role = relationship("Role", back_populates="users")
+    # Primary role relationship
+    role = relationship("Role", back_populates="primary_users", foreign_keys=[role_id])
+    # Many-to-many relationship for additional roles
+    roles = relationship("Role", secondary=user_role, back_populates="users")
     chat_histories = relationship("ChatHistory", back_populates="user")
     documents = relationship("Document", back_populates="user")
     databases = relationship("Database", back_populates="user")

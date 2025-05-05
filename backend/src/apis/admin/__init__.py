@@ -6,8 +6,8 @@ from src.apis.admin.roles import router as roles_router
 from src.apis.admin.permissions import router as permissions_router
 from src.apis.admin.database import router as database_router
 
-# Main admin router
-router = APIRouter(prefix="/admin", tags=["Admin"])
+# Main admin router - no prefix here, since we'll add it in main.py
+router = APIRouter(tags=["Admin"])
 
 # Include sub-routers
 router.include_router(dashboard_router)

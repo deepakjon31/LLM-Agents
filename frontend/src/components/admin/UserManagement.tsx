@@ -21,11 +21,19 @@ type User = {
 type Role = {
   id: number;
   name: string;
-  description: string | null;
+  description?: string;
 };
 
 type UserWithRoles = User & {
-  roles: { id: number; name: string }[];
+  roles: Role[];
+};
+
+// New user form data type
+type NewUserFormData = {
+  mobile_number: string;
+  email: string;
+  password: string;
+  is_admin: boolean;
 };
 
 const UserManagement: React.FC = () => {
@@ -43,34 +51,81 @@ const UserManagement: React.FC = () => {
   const [userRoles, setUserRoles] = useState<number[]>([]);
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
   
-  // Form data for editing
-  const [formData, setFormData] = useState({
+  // State for the new user form
+  const [isCreateMode, setIsCreateMode] = useState(false);
+  const [newUserFormData, setNewUserFormData] = useState<NewUserFormData>({
+    mobile_number: '',
     email: '',
-    is_active: true,
-    is_admin: false,
-    password: ''
+    password: '',
+    is_admin: false
   });
 
-  const fetchUsers = async () => {
-    setIsLoading(true);
-    setError(null);
+  // Function to handle form field changes for new user
+  const handleNewUserFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type, checked } = e.target;
+    setNewUserFormData({
+      ...newUserFormData,
+      [name]: type === 'checkbox' ? checked : value
+    });
+  };
+
+  // Function to create a new user
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
     
     try {
-      const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/admin/users`, {
-        headers: {
-          'Authorization': `Bearer ${(session as any)?.accessToken || ''}`
+      setIsLoading(true);
+      const response = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/admin/users`,
+        newUserFormData,
+        {
+          headers: {
+            'Authorization': `Bearer ${(session as any)?.accessToken || ''}`
+          }
         }
-      });
+      );
       
-      setUsers(response.data);
-    } catch (err) {
-      console.error('Error fetching users:', err);
-      setError('Failed to load users. Please try again later.');
+      // Add the new user to the users list and refresh
+      await fetchUsers();
+      
+      // Reset form and close the create mode
+      setNewUserFormData({
+        mobile_number: '',
+        email: '',
+        password: '',
+        is_admin: false
+      });
+      setIsCreateMode(false);
+      
+      toast.success('User created successfully');
+    } catch (err: any) {
+      console.error('Error creating user:', err);
+      toast.error(`Failed to create user: ${err.response?.data?.detail || err.message}`);
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Function to fetch users
+  const fetchUsers = async () => {
+    try {
+      setIsLoading(true);
+      const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/admin/users`, {
+        headers: {
+          'Authorization': `Bearer ${(session as any)?.accessToken || ''}`
+        }
+      });
+      setUsers(response.data);
+    } catch (err: any) {
+      console.error('Error fetching users:', err);
+      setError(err.message);
+      toast.error(`Failed to fetch users: ${err.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Function to fetch roles
   const fetchRoles = async () => {
     try {
       const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/admin/roles`, {
@@ -78,10 +133,10 @@ const UserManagement: React.FC = () => {
           'Authorization': `Bearer ${(session as any)?.accessToken || ''}`
         }
       });
-      
       setRoles(response.data);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching roles:', err);
+      toast.error(`Failed to fetch roles: ${err.message}`);
     }
   };
 
@@ -92,73 +147,73 @@ const UserManagement: React.FC = () => {
     }
   }, [session]);
 
-  const handleUserSelect = async (userId: number) => {
-    try {
-      const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/admin/users/${userId}`, {
-        headers: {
-          'Authorization': `Bearer ${(session as any)?.accessToken || ''}`
-        }
-      });
-      
-      setSelectedUser(response.data);
-      setFormData({
-        email: response.data.email || '',
-        is_active: response.data.is_active,
-        is_admin: response.data.is_admin,
-        password: ''
-      });
-      
-      // Get selected roles
-      setSelectedRoles(response.data.roles.map((role: any) => role.id));
-    } catch (err) {
-      console.error('Error fetching user details:', err);
-      setError('Failed to load user details');
-    }
-  };
+  // Function to filter users by search term
+  const filteredUsers = searchTerm
+    ? users.filter(
+        user => 
+          user.mobile_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (user.email && user.email.toLowerCase().includes(searchTerm.toLowerCase()))
+      )
+    : users;
 
-  const handleEditToggle = () => {
-    setIsEditMode(!isEditMode);
-    setShowRoleAssignment(false);
-  };
-
-  const handleRoleAssignmentToggle = () => {
-    setShowRoleAssignment(!showRoleAssignment);
-    setIsEditMode(false);
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Function to handle form field changes
+  const handleFieldChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!selectedUser) return;
+    
     const { name, value, type, checked } = e.target;
-    setFormData({
-      ...formData,
+    setSelectedUser({
+      ...selectedUser,
       [name]: type === 'checkbox' ? checked : value
     });
   };
 
-  const handleRoleToggle = (roleId: number) => {
-    if (selectedRoles.includes(roleId)) {
-      setSelectedRoles(selectedRoles.filter(id => id !== roleId));
-    } else {
-      setSelectedRoles([...selectedRoles, roleId]);
+  // Function to fetch user roles
+  const fetchUserRoles = async (userId: number) => {
+    try {
+      const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/admin/users/${userId}/roles`, {
+        headers: {
+          'Authorization': `Bearer ${(session as any)?.accessToken || ''}`
+        }
+      });
+      // Get role IDs
+      const roleIds = response.data.map((role: Role) => role.id);
+      setUserRoles(roleIds);
+      setSelectedRoles(roleIds);
+    } catch (err: any) {
+      console.error('Error fetching user roles:', err);
+      toast.error(`Failed to fetch user roles: ${err.message}`);
     }
   };
 
-  const handleSaveUser = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
+  // Function to handle user selection for editing
+  const handleSelectUser = async (user: User) => {
+    try {
+      const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/admin/users/${user.id}`, {
+        headers: {
+          'Authorization': `Bearer ${(session as any)?.accessToken || ''}`
+        }
+      });
+      const userData = response.data as UserWithRoles;
+      setSelectedUser(userData);
+      await fetchUserRoles(user.id);
+    } catch (err: any) {
+      console.error('Error fetching user details:', err);
+      toast.error(`Failed to fetch user details: ${err.message}`);
+    }
+  };
+
+  // Function to save user changes
+  const handleSaveUser = async () => {
     if (!selectedUser) return;
     
     try {
-      // Only include password if it's been entered
-      const userData = {
-        email: formData.email,
-        is_active: formData.is_active,
-        is_admin: formData.is_admin,
-        ...(formData.password ? { password: formData.password } : {})
-      };
-      
       await axios.put(
         `${process.env.NEXT_PUBLIC_API_URL}/admin/users/${selectedUser.id}`,
-        userData,
+        {
+          email: selectedUser.email,
+          is_active: selectedUser.is_active,
+          is_admin: selectedUser.is_admin
+        },
         {
           headers: {
             'Authorization': `Bearer ${(session as any)?.accessToken || ''}`
@@ -166,41 +221,17 @@ const UserManagement: React.FC = () => {
         }
       );
       
-      // Refresh user data
-      await handleUserSelect(selectedUser.id);
-      await fetchUsers();
+      // Update the user list
+      fetchUsers();
       setIsEditMode(false);
-      
-    } catch (err) {
+      toast.success('User updated successfully');
+    } catch (err: any) {
       console.error('Error updating user:', err);
-      setError('Failed to update user');
+      toast.error(`Failed to update user: ${err.message}`);
     }
   };
 
-  const handleSaveRoles = async () => {
-    if (!selectedUser) return;
-    
-    try {
-      await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/admin/users/${selectedUser.id}/roles`,
-        { role_ids: selectedRoles },
-        {
-          headers: {
-            'Authorization': `Bearer ${(session as any)?.accessToken || ''}`
-          }
-        }
-      );
-      
-      // Refresh user data
-      await handleUserSelect(selectedUser.id);
-      setShowRoleAssignment(false);
-      
-    } catch (err) {
-      console.error('Error assigning roles:', err);
-      setError('Failed to assign roles');
-    }
-  };
-
+  // Function to handle user deletion
   const handleDeleteUser = async (userId: number) => {
     try {
       await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/admin/users/${userId}`, {
@@ -209,444 +240,490 @@ const UserManagement: React.FC = () => {
         }
       });
       
-      setUsers(users.filter(user => user.id !== userId));
-      setSelectedUser(null);
+      // Update the user list
+      setUsers(users.filter(u => u.id !== userId));
       setShowConfirmDelete(null);
-      
-    } catch (err) {
+      if (selectedUser?.id === userId) {
+        setSelectedUser(null);
+        setIsEditMode(false);
+      }
+      toast.success('User deleted successfully');
+    } catch (err: any) {
       console.error('Error deleting user:', err);
-      setError('Failed to delete user');
+      toast.error(`Failed to delete user: ${err.message}`);
     }
   };
 
-  const handleAssignRoles = async (user: User) => {
-    setSelectedUser(user);
-    const userRoleIds = await fetchUserRoles(user.id);
-    setUserRoles(userRoleIds);
-    setIsRoleModalOpen(true);
+  // Function to toggle role selection
+  const handleRoleToggle = (roleId: number) => {
+    if (selectedRoles.includes(roleId)) {
+      setSelectedRoles(selectedRoles.filter(id => id !== roleId));
+    } else {
+      setSelectedRoles([...selectedRoles, roleId]);
+    }
   };
 
-  const fetchUserRoles = async (userId: number) => {
+  // Function to save role assignments
+  const handleSaveRoles = async () => {
+    if (!selectedUser) return;
+    
     try {
-      const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/admin/users/${userId}/roles`, {
-        headers: {
-          'Authorization': `Bearer ${(session as any)?.accessToken || ''}`
+      await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/admin/users/${selectedUser.id}/roles`,
+        {
+          user_id: selectedUser.id,
+          role_ids: selectedRoles
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${(session as any)?.accessToken || ''}`
+          }
         }
-      });
-      return response.data.map((role: Role) => role.id);
-    } catch (error) {
-      console.error('Error fetching user roles:', error);
-      toast.error('Failed to load user roles');
-      return [];
+      );
+      
+      setShowRoleAssignment(false);
+      setUserRoles(selectedRoles);
+      toast.success('User roles updated successfully');
+    } catch (err: any) {
+      console.error('Error assigning roles:', err);
+      toast.error(`Failed to assign roles: ${err.message}`);
     }
   };
 
-  const filteredUsers = searchTerm
-    ? users.filter(user => 
-        user.mobile_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.email?.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    : users;
-
+  // Render function
   return (
-    <div>
-      <h2 className="text-xl font-semibold text-gray-800 mb-6">User Management</h2>
-      
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
-          <strong className="font-bold">Error:</strong>
-          <span className="block sm:inline"> {error}</span>
+    <div className="flex flex-col md:flex-row gap-4 p-4">
+      {/* User List */}
+      <div className="w-full md:w-1/2 bg-white p-4 rounded shadow">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold">Users</h2>
           <button 
-            className="absolute top-0 bottom-0 right-0 px-4 py-3" 
-            onClick={() => setError(null)}
+            onClick={() => setIsCreateMode(true)} 
+            className="bg-green-500 text-white p-2 rounded flex items-center gap-1"
           >
-            <FaTimes />
+            <FaUserPlus /> New User
           </button>
         </div>
-      )}
-      
-      {/* Search and filter section */}
-      <div className="mb-6 flex items-center">
-        <div className="relative flex-1">
+        
+        {/* Search */}
+        <div className="relative mb-4">
           <input
             type="text"
-            placeholder="Search users by mobile or email..."
-            className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            placeholder="Search by phone or email..."
+            className="w-full p-2 pl-10 border rounded"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
           <FaSearch className="absolute left-3 top-3 text-gray-400" />
+          {searchTerm && (
+            <button 
+              className="absolute right-3 top-3 text-gray-400"
+              onClick={() => setSearchTerm('')}
+            >
+              <FaTimes />
+            </button>
+          )}
         </div>
         
-        <button 
-          className="ml-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center"
-          onClick={() => {
-            setSelectedUser(null);
-            setIsEditMode(false);
-            setShowRoleAssignment(false);
-          }}
-        >
-          <FaUserPlus className="mr-2" />
-          Add User
-        </button>
+        {/* User Table */}
+        {isLoading ? (
+          <div className="text-center py-4">Loading...</div>
+        ) : error ? (
+          <div className="text-center text-red-500 py-4">{error}</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full table-auto">
+              <thead className="bg-gray-100">
+                <tr>
+                  <th className="px-4 py-2 text-left">Phone</th>
+                  <th className="px-4 py-2 text-left">Email</th>
+                  <th className="px-4 py-2 text-center">Admin</th>
+                  <th className="px-4 py-2 text-center">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredUsers.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-2 text-center">No users found</td>
+                  </tr>
+                ) : (
+                  filteredUsers.map(user => (
+                    <tr 
+                      key={user.id} 
+                      className={`border-t hover:bg-gray-50 ${selectedUser?.id === user.id ? 'bg-blue-50' : ''}`}
+                    >
+                      <td className="px-4 py-2">{user.mobile_number}</td>
+                      <td className="px-4 py-2">{user.email || '-'}</td>
+                      <td className="px-4 py-2 text-center">
+                        {user.is_admin ? (
+                          <FaCheck className="inline text-green-500" />
+                        ) : (
+                          <FaTimes className="inline text-red-500" />
+                        )}
+                      </td>
+                      <td className="px-4 py-2 text-center">
+                        <div className="flex justify-center space-x-2">
+                          <button 
+                            onClick={() => {
+                              handleSelectUser(user);
+                              setIsEditMode(true);
+                            }}
+                            className="text-blue-500 hover:text-blue-700"
+                            title="Edit User"
+                          >
+                            <FaEdit />
+                          </button>
+                          <button 
+                            onClick={() => {
+                              handleSelectUser(user);
+                              setShowRoleAssignment(true);
+                            }}
+                            className="text-purple-500 hover:text-purple-700"
+                            title="Manage Roles"
+                          >
+                            <FaUserTag />
+                          </button>
+                          <button 
+                            onClick={() => setShowConfirmDelete(user.id)}
+                            className="text-red-500 hover:text-red-700"
+                            title="Delete User"
+                          >
+                            <FaTrash />
+                          </button>
+                          {showConfirmDelete === user.id && (
+                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                              <div className="bg-white p-4 rounded shadow-lg max-w-md mx-4">
+                                <h3 className="text-lg font-bold mb-2">Confirm Delete</h3>
+                                <p>Are you sure you want to delete user {user.mobile_number}?</p>
+                                <div className="flex justify-end space-x-2 mt-4">
+                                  <button 
+                                    onClick={() => setShowConfirmDelete(null)}
+                                    className="bg-gray-300 text-black px-4 py-2 rounded"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button 
+                                    onClick={() => handleDeleteUser(user.id)}
+                                    className="bg-red-500 text-white px-4 py-2 rounded"
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
       
-      {/* Main content */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* User list */}
-        <div className="md:col-span-1 bg-white rounded-lg shadow p-4 overflow-auto max-h-[70vh]">
-          <h3 className="text-lg font-medium text-gray-700 mb-4">Users</h3>
-          {isLoading ? (
-            <div className="flex justify-center items-center h-32">
-              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
-            </div>
-          ) : (
-            <ul className="space-y-2">
-              {filteredUsers.map(user => (
-                <li key={user.id}>
-                  <button
-                    onClick={() => handleUserSelect(user.id)}
-                    className={`w-full text-left px-4 py-2 rounded-lg flex items-center justify-between ${
-                      selectedUser?.id === user.id
-                        ? 'bg-indigo-100 text-indigo-800'
-                        : 'hover:bg-gray-100'
-                    }`}
-                  >
-                    <div className="flex items-center">
-                      <div className="mr-3">
-                        {user.is_admin ? (
-                          <FaUserShield className="text-indigo-600" />
-                        ) : (
-                          <div className={`w-2 h-2 rounded-full ${user.is_active ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                        )}
-                      </div>
-                      <div>
-                        <p className="font-medium">{user.mobile_number}</p>
-                        <p className="text-xs text-gray-500">{user.email || 'No email'}</p>
-                      </div>
-                    </div>
-                    
-                    {showConfirmDelete === user.id ? (
-                      <div className="flex items-center">
-                        <button 
-                          className="text-red-600 hover:text-red-800 mr-2" 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteUser(user.id);
-                          }}
-                        >
-                          <FaCheck />
-                        </button>
-                        <button 
-                          className="text-gray-600 hover:text-gray-800" 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setShowConfirmDelete(null);
-                          }}
-                        >
-                          <FaTimes />
-                        </button>
-                      </div>
-                    ) : (
-                      <button 
-                        className="text-red-600 hover:text-red-800" 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setShowConfirmDelete(user.id);
-                        }}
-                      >
-                        <FaTrash />
-                      </button>
-                    )}
-                  </button>
-                </li>
-              ))}
-              
-              {filteredUsers.length === 0 && (
-                <p className="text-gray-500 text-center py-4">No users found</p>
-              )}
-            </ul>
-          )}
-        </div>
-        
-        {/* User details */}
-        <div className="md:col-span-2 bg-white rounded-lg shadow p-4">
-          {selectedUser ? (
-            <div>
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-medium text-gray-700">User Details</h3>
-                <div className="flex space-x-2">
-                  <button
-                    onClick={handleEditToggle}
-                    className={`px-3 py-1 rounded-lg flex items-center ${
-                      isEditMode 
-                        ? 'bg-gray-200 text-gray-800' 
-                        : 'bg-indigo-600 text-white hover:bg-indigo-700'
-                    }`}
-                  >
-                    <FaEdit className="mr-1" />
-                    {isEditMode ? 'Cancel' : 'Edit'}
-                  </button>
-                  
-                  <button
-                    onClick={handleRoleAssignmentToggle}
-                    className={`px-3 py-1 rounded-lg flex items-center ${
-                      showRoleAssignment 
-                        ? 'bg-gray-200 text-gray-800' 
-                        : 'bg-purple-600 text-white hover:bg-purple-700'
-                    }`}
-                  >
-                    <FaUserTag className="mr-1" />
-                    {showRoleAssignment ? 'Cancel' : 'Roles'}
-                  </button>
-                </div>
-              </div>
-              
-              {isEditMode ? (
-                // Edit Form
-                <form onSubmit={handleSaveUser} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Mobile Number (read-only)
-                    </label>
-                    <input
-                      type="text"
-                      value={selectedUser.mobile_number}
-                      readOnly
-                      className="w-full px-3 py-2 border rounded-lg bg-gray-100"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Email
-                    </label>
-                    <input
-                      type="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      New Password (leave blank to keep unchanged)
-                    </label>
-                    <input
-                      type="password"
-                      name="password"
-                      value={formData.password}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                  
-                  <div className="flex space-x-4">
-                    <label className="flex items-center">
-                      <input
-                        type="checkbox"
-                        name="is_active"
-                        checked={formData.is_active}
-                        onChange={handleInputChange}
-                        className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                      />
-                      <span className="ml-2 text-sm text-gray-700">Active</span>
-                    </label>
-                    
-                    <label className="flex items-center">
-                      <input
-                        type="checkbox"
-                        name="is_admin"
-                        checked={formData.is_admin}
-                        onChange={handleInputChange}
-                        className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                      />
-                      <span className="ml-2 text-sm text-gray-700">Admin</span>
-                    </label>
-                  </div>
-                  
-                  <div className="pt-2">
-                    <button
-                      type="submit"
-                      className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-                    >
-                      Save Changes
-                    </button>
-                  </div>
-                </form>
-              ) : showRoleAssignment ? (
-                // Role Assignment
-                <div>
-                  <h4 className="font-medium text-gray-700 mb-3">Assign Roles</h4>
-                  
-                  <div className="max-h-64 overflow-y-auto mb-4">
-                    {roles.length > 0 ? (
-                      <ul className="space-y-2">
-                        {roles.map(role => (
-                          <li key={role.id}>
-                            <label className="flex items-center p-2 rounded hover:bg-gray-50">
-                              <input
-                                type="checkbox"
-                                checked={selectedRoles.includes(role.id)}
-                                onChange={() => handleRoleToggle(role.id)}
-                                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                              />
-                              <span className="ml-2 text-sm font-medium text-gray-700">{role.name}</span>
-                              {role.description && (
-                                <span className="ml-2 text-xs text-gray-500">{role.description}</span>
-                              )}
-                            </label>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="text-gray-500">No roles available</p>
-                    )}
-                  </div>
-                  
-                  <button
-                    onClick={handleSaveRoles}
-                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-                  >
-                    Save Role Assignments
-                  </button>
-                </div>
-              ) : (
-                // Display Mode
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-500">Mobile Number</h4>
-                      <p className="text-gray-800">{selectedUser.mobile_number}</p>
-                    </div>
-                    
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-500">Email</h4>
-                      <p className="text-gray-800">{selectedUser.email || 'Not provided'}</p>
-                    </div>
-                    
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-500">Status</h4>
-                      <div className="flex items-center">
-                        {selectedUser.is_active ? (
-                          <>
-                            <FaCheck className="text-green-500 mr-1" />
-                            <span className="text-green-700">Active</span>
-                          </>
-                        ) : (
-                          <>
-                            <FaBan className="text-red-500 mr-1" />
-                            <span className="text-red-700">Inactive</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-500">Admin</h4>
-                      <div className="flex items-center">
-                        {selectedUser.is_admin ? (
-                          <>
-                            <FaUserShield className="text-indigo-600 mr-1" />
-                            <span className="text-indigo-700">Yes</span>
-                          </>
-                        ) : (
-                          <span className="text-gray-600">No</span>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-500">Created At</h4>
-                      <p className="text-gray-800">
-                        {new Date(selectedUser.created_at).toLocaleDateString()}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  {/* Display assigned roles */}
-                  <div className="pt-2">
-                    <h4 className="text-sm font-medium text-gray-500 mb-2">Assigned Roles</h4>
-                    {selectedUser.roles && selectedUser.roles.length > 0 ? (
-                      <div className="flex flex-wrap gap-2">
-                        {selectedUser.roles.map((role) => (
-                          <span
-                            key={role.id}
-                            className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs"
-                          >
-                            {role.name}
-                          </span>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-gray-500 text-sm">No roles assigned</p>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="flex justify-center items-center h-64 flex-col">
-              <p className="text-gray-500 mb-4">Select a user to view details</p>
-              <p className="text-gray-400 text-sm">or</p>
+      {/* User Detail / Edit Form */}
+      <div className="w-full md:w-1/2 bg-white p-4 rounded shadow">
+        {isCreateMode ? (
+          // Create User Form
+          <div>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">Create New User</h2>
               <button 
-                className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center"
+                onClick={() => setIsCreateMode(false)}
+                className="text-gray-500 hover:text-gray-700"
               >
-                <FaUserPlus className="mr-2" />
-                Add a new user
+                <FaTimes />
               </button>
             </div>
-          )}
-        </div>
-      </div>
-
-      {/* Role Assignment Modal */}
-      {isRoleModalOpen && selectedUser && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 max-w-md w-full">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">
-              Assign Roles: {selectedUser.mobile_number}
-            </h3>
             
-            <div className="mb-4 max-h-60 overflow-y-auto">
-              {roles.map((role) => (
-                <div key={role.id} className="flex items-center py-2">
-                  <input
-                    type="checkbox"
-                    id={`role-${role.id}`}
-                    checked={userRoles.includes(role.id)}
-                    onChange={() => handleRoleToggle(role.id)}
-                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                  />
-                  <label htmlFor={`role-${role.id}`} className="ml-3 text-sm text-gray-700">
-                    {role.name}
-                    {role.description && (
-                      <span className="text-xs text-gray-500 ml-2">({role.description})</span>
-                    )}
-                  </label>
-                </div>
-              ))}
+            <form onSubmit={handleCreateUser}>
+              <div className="mb-4">
+                <label className="block text-gray-700 mb-2">Mobile Number *</label>
+                <input
+                  type="text"
+                  name="mobile_number"
+                  value={newUserFormData.mobile_number}
+                  onChange={handleNewUserFormChange}
+                  className="w-full p-2 border rounded"
+                  required
+                />
+              </div>
+              
+              <div className="mb-4">
+                <label className="block text-gray-700 mb-2">Email</label>
+                <input
+                  type="email"
+                  name="email"
+                  value={newUserFormData.email}
+                  onChange={handleNewUserFormChange}
+                  className="w-full p-2 border rounded"
+                />
+              </div>
+              
+              <div className="mb-4">
+                <label className="block text-gray-700 mb-2">Password *</label>
+                <input
+                  type="password"
+                  name="password"
+                  value={newUserFormData.password}
+                  onChange={handleNewUserFormChange}
+                  className="w-full p-2 border rounded"
+                  required
+                />
+              </div>
+              
+              <div className="mb-4 flex items-center">
+                <input
+                  type="checkbox"
+                  id="is_admin"
+                  name="is_admin"
+                  checked={newUserFormData.is_admin}
+                  onChange={handleNewUserFormChange}
+                  className="mr-2"
+                />
+                <label htmlFor="is_admin" className="text-gray-700">Admin User</label>
+              </div>
+              
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateMode(false)}
+                  className="bg-gray-300 text-black px-4 py-2 rounded mr-2"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="bg-green-500 text-white px-4 py-2 rounded flex items-center gap-1"
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Creating...' : <>Create User <FaUserPlus /></>}
+                </button>
+              </div>
+            </form>
+          </div>
+        ) : isEditMode && selectedUser ? (
+          // Edit User Form
+          <div>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">Edit User</h2>
+              <button 
+                onClick={() => setIsEditMode(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <FaTimes />
+              </button>
             </div>
             
-            <div className="flex justify-end space-x-3">
+            <div className="mb-4">
+              <label className="block text-gray-700 mb-2">Mobile Number</label>
+              <input
+                type="text"
+                value={selectedUser.mobile_number}
+                className="w-full p-2 border rounded bg-gray-100"
+                disabled
+              />
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-gray-700 mb-2">Email</label>
+              <input
+                type="email"
+                name="email"
+                value={selectedUser.email || ''}
+                onChange={handleFieldChange}
+                className="w-full p-2 border rounded"
+              />
+            </div>
+            
+            <div className="mb-4 flex items-center">
+              <input
+                type="checkbox"
+                id="is_active"
+                name="is_active"
+                checked={selectedUser.is_active}
+                onChange={handleFieldChange}
+                className="mr-2"
+              />
+              <label htmlFor="is_active" className="text-gray-700">Active</label>
+            </div>
+            
+            <div className="mb-4 flex items-center">
+              <input
+                type="checkbox"
+                id="is_admin"
+                name="is_admin"
+                checked={selectedUser.is_admin}
+                onChange={handleFieldChange}
+                className="mr-2"
+              />
+              <label htmlFor="is_admin" className="text-gray-700">Admin</label>
+            </div>
+            
+            <div className="flex justify-end">
               <button
-                onClick={() => setIsRoleModalOpen(false)}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                onClick={() => setIsEditMode(false)}
+                className="bg-gray-300 text-black px-4 py-2 rounded mr-2"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveUser}
+                className="bg-blue-500 text-white px-4 py-2 rounded flex items-center gap-1"
+              >
+                Save <FaCheck />
+              </button>
+            </div>
+          </div>
+        ) : showRoleAssignment && selectedUser ? (
+          // Role Assignment Form
+          <div>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">Manage Roles: {selectedUser.mobile_number}</h2>
+              <button 
+                onClick={() => setShowRoleAssignment(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <FaTimes />
+              </button>
+            </div>
+            
+            <div className="mb-4">
+              <h3 className="font-semibold mb-2">Assign Roles</h3>
+              {roles.length === 0 ? (
+                <p>No roles available</p>
+              ) : (
+                <div className="space-y-2">
+                  {roles.map(role => (
+                    <div key={role.id} className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id={`role-${role.id}`}
+                        checked={selectedRoles.includes(role.id)}
+                        onChange={() => handleRoleToggle(role.id)}
+                        className="mr-2"
+                      />
+                      <label htmlFor={`role-${role.id}`} className="flex-1">
+                        <span className="font-medium">{role.name}</span>
+                        {role.description && (
+                          <span className="text-sm text-gray-500 block">{role.description}</span>
+                        )}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            <div className="flex justify-end">
+              <button
+                onClick={() => setShowRoleAssignment(false)}
+                className="bg-gray-300 text-black px-4 py-2 rounded mr-2"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveRoles}
-                className="px-4 py-2 bg-indigo-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-indigo-700"
+                className="bg-purple-500 text-white px-4 py-2 rounded flex items-center gap-1"
               >
-                Save
+                Save Roles <FaUserShield />
               </button>
             </div>
           </div>
-        </div>
-      )}
+        ) : selectedUser ? (
+          // User Detail View
+          <div>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">User Details</h2>
+              <button 
+                onClick={() => setSelectedUser(null)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <FaTimes />
+              </button>
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-gray-500">ID</label>
+              <div>{selectedUser.id}</div>
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-gray-500">Mobile Number</label>
+              <div>{selectedUser.mobile_number}</div>
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-gray-500">Email</label>
+              <div>{selectedUser.email || '-'}</div>
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-gray-500">Status</label>
+              <div>
+                {selectedUser.is_active ? (
+                  <span className="text-green-500 font-medium">Active</span>
+                ) : (
+                  <span className="text-red-500 font-medium">Inactive</span>
+                )}
+              </div>
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-gray-500">Admin</label>
+              <div>
+                {selectedUser.is_admin ? (
+                  <span className="text-green-500 font-medium">Yes</span>
+                ) : (
+                  <span className="text-gray-500 font-medium">No</span>
+                )}
+              </div>
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-gray-500">Created At</label>
+              <div>{new Date(selectedUser.created_at).toLocaleString()}</div>
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-gray-500">Roles</label>
+              <div className="flex flex-wrap gap-1 mt-1">
+                {userRoles.length > 0 ? (
+                  roles
+                    .filter(role => userRoles.includes(role.id))
+                    .map(role => (
+                      <div key={role.id} className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm">
+                        {role.name}
+                      </div>
+                    ))
+                ) : (
+                  <span className="text-gray-500">No roles assigned</span>
+                )}
+              </div>
+            </div>
+            
+            <div className="flex justify-end">
+              <button
+                onClick={() => {
+                  setIsEditMode(true);
+                }}
+                className="bg-blue-500 text-white px-4 py-2 rounded flex items-center gap-1"
+              >
+                Edit <FaEdit />
+              </button>
+            </div>
+          </div>
+        ) : (
+          // No user selected
+          <div className="text-center py-8 text-gray-500">
+            <FaUsersCog className="text-5xl mx-auto mb-2 text-gray-300" />
+            <p>Select a user to view details</p>
+            <p className="text-sm">or click "New User" to create one</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

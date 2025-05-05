@@ -4,7 +4,7 @@ from typing import List
 from datetime import datetime
 
 from src.common.db.connection import get_db
-from src.common.db.schema import Role, Permission, RolePermission, User
+from src.common.db.schema import Role, Permission, User
 from src.common.pydantic_models.admin_models import (
     RoleCreate, RoleUpdate, RoleResponse, 
     PermissionResponse, RolePermissionAssignment
@@ -114,7 +114,7 @@ async def assign_permissions_to_role(
         raise HTTPException(status_code=404, detail="Role not found")
     
     # Clear existing permissions
-    db.query(RolePermission).filter(RolePermission.role_id == role_id).delete()
+    role.permissions = []
     
     # Add new permissions
     for permission_id in assignment.permission_ids:
@@ -123,11 +123,8 @@ async def assign_permissions_to_role(
         if not permission:
             raise HTTPException(status_code=404, detail=f"Permission with ID {permission_id} not found")
         
-        role_permission = RolePermission(
-            role_id=role_id,
-            permission_id=permission_id
-        )
-        db.add(role_permission)
+        # Add permission to role's permissions collection
+        role.permissions.append(permission)
     
     db.commit()
     return {"message": "Permissions assigned successfully"}
@@ -144,9 +141,5 @@ async def get_role_permissions(
     if not role:
         raise HTTPException(status_code=404, detail="Role not found")
     
-    # Get permissions
-    permissions = db.query(Permission).join(
-        RolePermission, RolePermission.permission_id == Permission.id
-    ).filter(RolePermission.role_id == role_id).all()
-    
-    return permissions 
+    # Get permissions directly from role.permissions relationship
+    return role.permissions 
