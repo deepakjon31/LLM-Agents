@@ -10,11 +10,16 @@ import AdminPanel from '../admin/AdminPanel';
 import { FaBars, FaTimes, FaHistory, FaUpload, FaSignOutAlt } from 'react-icons/fa';
 import dynamic from 'next/dynamic';
 
-type ActiveTab = 'chat' | 'history' | 'data-ingestion' | 'admin';
+type ActiveTab = 'chat' | 'history' | 'data-ingestion' | 'extract' | 'admin';
 
 // Import the DataIngestion component dynamically to fix module not found error
 const DataIngestion = dynamic(() => import('../data/DataIngestion'), {
   loading: () => <p>Loading data ingestion...</p>,
+});
+
+// Import the Extract component dynamically
+const Extract = dynamic(() => import('../extract/Extract'), {
+  loading: () => <p>Loading document extraction tools...</p>,
 });
 
 export default function Dashboard() {
@@ -92,6 +97,8 @@ export default function Dashboard() {
         return <History />;
       case 'data-ingestion':
         return <DataIngestion onDocumentUploadSuccess={handleDocumentUploadSuccess} documentRefreshTrigger={documentRefreshTrigger} />;
+      case 'extract':
+        return <Extract />;
       case 'admin':
         return <AdminPanel />;
       default:
@@ -129,6 +136,7 @@ export default function Dashboard() {
                 {activeTab === 'chat' && 'AI Chatbot'}
                 {activeTab === 'history' && 'Chat History'}
                 {activeTab === 'data-ingestion' && 'Data Ingestion'}
+                {activeTab === 'extract' && 'Document Extraction'}
                 {activeTab === 'admin' && 'Admin Panel'}
               </h1>
             </div>
