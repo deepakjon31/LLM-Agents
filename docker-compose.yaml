@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # PostgreSQL database
   postgres:
@@ -53,8 +51,6 @@ services:
     ports:
       - "8000:8000"
       - "8080:8080"
-    volumes:
-      - /Users/deepak/Desktop/nexai/github/LLM-Agents/backend:/app/backend
     depends_on:
       postgres:
         condition: service_healthy
@@ -69,7 +65,7 @@ services:
       - MONGO_CONNECTION_STRING=mongodb://mongodb:27017/
       - MONGO_DB_NAME=agentic_rag
       - SECRET_KEY=development_secret_key
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-sk-dummy-key}
       - SKIP_DB=false
       - START_MCP_SERVER=true
     command: sh -c "pip install psycopg2-binary && uvicorn src.main:app --host 0.0.0.0 --port 8000"
@@ -94,8 +90,6 @@ services:
     image: agentic-rag/frontend:dev
     ports:
       - "3000:3000"
-    volumes:
-      - /Users/deepak/Desktop/nexai/github/LLM-Agents/frontend:/app/frontend
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:8000
       - NEXTAUTH_URL=http://localhost:3000
@@ -120,5 +114,4 @@ services:
 volumes:
   postgres_data:
   mongo_data:
-  backend_cache:
-  frontend_cache: 
+  

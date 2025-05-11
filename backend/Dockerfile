@@ -1,4 +1,4 @@
-FROM python:3.12-slim as builder
+FROM python:3.12-slim
 
 WORKDIR /app
 
@@ -6,24 +6,15 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     python3-dev \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching
 COPY requirements.txt .
 
-# Install dependencies into a virtual environment
-RUN python -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
+# Install dependencies
 RUN pip install --upgrade pip && \
     pip install -r requirements.txt
-
-# FROM python:3.12-slim
-
-# WORKDIR /app
-
-# # Copy virtual environment from builder stage
-# COPY --from=builder /opt/venv /opt/venv
-# ENV PATH="/opt/venv/bin:$PATH"
 
 # Copy application code
 COPY . .
