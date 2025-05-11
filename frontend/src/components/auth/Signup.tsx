@@ -14,39 +14,35 @@ export default function Signup() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  
   const router = useRouter();
-
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_URL;
+  
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!mobileNumber || !password || !confirmPassword) {
-      setError('All fields are required');
+    // Reset error and set loading
+    setError('');
+    setIsLoading(true);
+    
+    // Form validation
+    if (!mobileNumber) {
+      setError('Mobile number is required');
+      setIsLoading(false);
+      return;
+    }
+    
+    if (!password) {
+      setError('Password is required');
+      setIsLoading(false);
       return;
     }
     
     if (password !== confirmPassword) {
       setError('Passwords do not match');
+      setIsLoading(false);
       return;
     }
-    
-    // Validate mobile number format (simple check)
-    if (!/^\d{7,15}$/.test(mobileNumber)) {
-      setError('Please enter a valid mobile number (7-15 digits)');
-      return;
-    }
-
-    // Validate email if provided
-    if (email && !email.includes('@')) {
-      setError('Please enter a valid email address');
-      return;
-    }
-    
-    setIsLoading(true);
-    setError('');
-    setSuccess(false);
-    
-    // Use environment variable with fallback to localhost instead of backend container name
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_URL;
     
     try {
       console.log(`Sending signup request to: ${apiUrl}/auth/signup`);
@@ -55,6 +51,11 @@ export default function Signup() {
         password: password,
         ...(email ? { email } : {})
       };
+      
+      console.log('Signup payload:', { 
+        ...payload, 
+        password: '********'  // Don't log actual password
+      });
       
       const response = await axios.post(`${apiUrl}/auth/signup`, payload, {
         headers: {
@@ -69,7 +70,7 @@ export default function Signup() {
         setSuccess(true);
         setTimeout(() => {
           router.push('/login');
-        }, 1000);
+        }, 2000);
       }
     } catch (error: any) {
       console.error('Signup error:', error);
@@ -96,113 +97,133 @@ export default function Signup() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center p-4 sm:p-24">
-      <div className="w-full max-w-md p-8 space-y-8 bg-white rounded-lg shadow-md">
-        <div>
-          <h1 className="text-3xl font-bold text-center">AI Chatbot</h1>
-          <h2 className="mt-6 text-xl font-semibold text-center text-gray-900">Create a new account</h2>
-        </div>
-        
-        {error && (
-          <div className="p-4 mb-4 text-sm text-red-700 bg-red-100 rounded-lg">
-            {error}
+    <div className="flex min-h-full flex-1 flex-col justify-center px-6 py-12 lg:px-8">
+      <div className="sm:mx-auto sm:w-full sm:max-w-sm">
+        <h2 className="mt-10 text-center text-2xl font-bold leading-9 tracking-tight text-gray-900">
+          Create your account
+        </h2>
+      </div>
+
+      <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
+        {success ? (
+          <div className="rounded-md bg-green-50 p-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-green-800">
+                  Account created successfully. Redirecting to login...
+                </p>
+              </div>
+            </div>
           </div>
-        )}
-        
-        {success && (
-          <div className="p-4 mb-4 text-sm text-green-700 bg-green-100 rounded-lg">
-            Account created successfully! Redirecting to login...
-          </div>
-        )}
-        
-        <form className="mt-8 space-y-6" onSubmit={handleSignup}>
-          <div className="space-y-4">
+        ) : (
+          <form className="space-y-6" onSubmit={handleSignup}>
+            {error && (
+              <div className="rounded-md bg-red-50 p-4">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm font-medium text-red-800">{error}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div>
-              <label htmlFor="mobileNumber" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="mobileNumber" className="block text-sm font-medium leading-6 text-gray-900">
                 Mobile Number
               </label>
-              <input
-                id="mobileNumber"
-                name="mobileNumber"
-                type="text"
-                required
-                value={mobileNumber}
-                onChange={(e) => setMobileNumber(e.target.value)}
-                className="relative block w-full px-3 py-2 mt-1 text-gray-900 placeholder-gray-500 border border-gray-300 rounded-md appearance-none focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="8050518293"
-              />
+              <div className="mt-2">
+                <input
+                  id="mobileNumber"
+                  name="mobileNumber"
+                  type="text"
+                  required
+                  value={mobileNumber}
+                  onChange={(e) => setMobileNumber(e.target.value)}
+                  className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                />
+              </div>
             </div>
-            
+
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="email" className="block text-sm font-medium leading-6 text-gray-900">
                 Email (optional)
               </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="relative block w-full px-3 py-2 mt-1 text-gray-900 placeholder-gray-500 border border-gray-300 rounded-md appearance-none focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="your@email.com"
-              />
+              <div className="mt-2">
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                />
+              </div>
             </div>
-            
+
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="password" className="block text-sm font-medium leading-6 text-gray-900">
                 Password
               </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="relative block w-full px-3 py-2 mt-1 text-gray-900 placeholder-gray-500 border border-gray-300 rounded-md appearance-none focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Test123"
-              />
-              <p className="mt-1 text-xs text-gray-500">
-                Password must contain at least 8 characters, one uppercase letter, and one number
-              </p>
+              <div className="mt-2">
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                />
+              </div>
             </div>
-            
+
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="confirmPassword" className="block text-sm font-medium leading-6 text-gray-900">
                 Confirm Password
               </label>
-              <input
-                id="confirmPassword"
-                name="confirmPassword"
-                type="password"
-                required
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="relative block w-full px-3 py-2 mt-1 text-gray-900 placeholder-gray-500 border border-gray-300 rounded-md appearance-none focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Test123"
-              />
+              <div className="mt-2">
+                <input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type="password"
+                  required
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                />
+              </div>
             </div>
-          </div>
 
-          <div className="flex flex-col space-y-3">
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="relative flex justify-center w-full px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md group hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-400"
-            >
-              {isLoading ? 'Loading...' : 'Sign up'}
-            </button>
-          </div>
-        </form>
-        
-        <div className="text-center mt-4">
-          <p className="text-sm">
-            Already have an account?{' '}
-            <Link href="/login" className="font-medium text-indigo-600 hover:text-indigo-500">
-              Login
-            </Link>
-          </p>
-        </div>
+            <div>
+              <button
+                type="submit"
+                disabled={isLoading}
+                className={`flex w-full justify-center rounded-md px-3 py-1.5 text-sm font-semibold leading-6 text-white shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 ${
+                  isLoading ? 'bg-indigo-400' : 'bg-indigo-600 hover:bg-indigo-500'
+                }`}
+              >
+                {isLoading ? 'Creating Account...' : 'Sign up'}
+              </button>
+            </div>
+          </form>
+        )}
+
+        <p className="mt-10 text-center text-sm text-gray-500">
+          Already have an account?{' '}
+          <Link href="/login" className="font-semibold leading-6 text-indigo-600 hover:text-indigo-500">
+            Log in
+          </Link>
+        </p>
       </div>
     </div>
   );

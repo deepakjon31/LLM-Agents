@@ -154,6 +154,10 @@ class UserProfileUpdate(BaseModel):
 # User with permissions
 class UserWithPermissions(UserResponse):
     permissions: List[str] = []
+    is_admin: bool = False
+    
+    class Config:
+        from_attributes = True
 
 # Role with permissions
 class RoleWithPermissions(RoleResponse):

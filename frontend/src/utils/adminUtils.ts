@@ -15,6 +15,15 @@ export const hasAdminAccess = (user: Session["user"]): boolean => {
                            user.permissions.includes(ADMIN_PERMISSION);
   const isAdminUser = user.is_admin === true;
   
+  // More detailed logging for debugging
+  console.debug('Admin access check:', { 
+    hasAdminRole, 
+    hasAdminPermission, 
+    isAdminUser,
+    role: user.role,
+    permissions: user.permissions
+  });
+  
   return hasAdminRole || hasAdminPermission || isAdminUser;
 };
 

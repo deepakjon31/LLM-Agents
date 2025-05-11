@@ -1,28 +1,33 @@
 import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import axios, { AxiosError } from "axios";
-import { DEFAULT_API_URL } from "@/constants/auth";
+import axios from "axios";
+import { ADMIN_ROLE_NAME, ADMIN_PERMISSION } from "@/constants/auth";
 
-// Simple debug log to confirm this file is loaded with the correct version
-console.log("[NextAuth] Loading authentication handler");
+// Constants
+const DEFAULT_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const INTERNAL_API_URL = process.env.NEXTAUTH_BACKEND_URL_INTERNAL || "http://backend:8000";
 
-// Set API URL based on environment variable with fallback
-const PUBLIC_API_URL = process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_URL;
-const INTERNAL_API_URL = process.env.NEXTAUTH_BACKEND_URL_INTERNAL || PUBLIC_API_URL; // Use internal URL if available
-console.log(`[NextAuth] Using INTERNAL API URL for server-side calls: ${INTERNAL_API_URL}`);
-
-// Define interface for backend error response
-interface BackendErrorDetail {
-  detail?: string;
-}
+// Error handler with better logging
+const handleAuthError = (error: any, context: string) => {
+  console.error(`[NextAuth] ${context} error:`, error);
+  
+  if (error.response) {
+    console.error(`[NextAuth] Response status: ${error.response.status}`);
+    console.error(`[NextAuth] Response data:`, error.response.data);
+  } else if (error.request) {
+    console.error('[NextAuth] No response received');
+  }
+  
+  return null;
+};
 
 const handler = NextAuth({
   providers: [
     CredentialsProvider({
-      name: "Mobile Number",
+      name: "Credentials",
       credentials: {
         mobileNumber: { label: "Mobile Number", type: "text" },
-        password: { label: "Password", type: "password" },
+        password: { label: "Password", type: "password" }
       },
       async authorize(credentials: Record<string, string> | undefined) {
         if (!credentials?.mobileNumber || !credentials?.password) {
@@ -31,43 +36,47 @@ const handler = NextAuth({
         }
 
         try {
-          console.log(`[NextAuth] Login attempt with mobile: ${credentials.mobileNumber}`);
+          console.log(`[NextAuth] Attempting login for ${credentials.mobileNumber}`);
+          console.log(`[NextAuth] Using API URL: ${INTERNAL_API_URL}`);
           
-          const formData = new URLSearchParams();
-          formData.append('username', credentials.mobileNumber);
-          formData.append('password', credentials.password);
-          
-          console.log(`[NextAuth] Sending POST to ${INTERNAL_API_URL}/auth/login`); // Use internal URL
-          
-          const response = await axios.post(
-            `${INTERNAL_API_URL}/auth/login`, // Use internal URL
-            formData.toString(),
-            {
-              headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-              },
-              timeout: 10000,
-              // withCredentials is not typically needed for server-to-server calls like this
-              // It's more relevant for browser requests involving cookies/sessions
-              // Let's remove it here to avoid potential confusion or issues.
-              // withCredentials: true 
-            }
-          );
+          // Step 1: Login to get token
+          const response = await axios.post(`${INTERNAL_API_URL}/auth/login`, {
+            username: credentials.mobileNumber,
+            password: credentials.password,
+          }, {
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            timeout: 10000
+          });
 
           if (response.data && response.data.access_token) {
             console.log("[NextAuth] Login successful, token received");
             
             // Get user details from the backend
-            const userResponse = await axios.get(`${INTERNAL_API_URL}/auth/me`, { // Use internal URL
+            const userResponse = await axios.get(`${INTERNAL_API_URL}/auth/me`, {
               headers: {
                 'Authorization': `Bearer ${response.data.access_token}`
               },
-              // withCredentials removed here too
-              // withCredentials: true,
               timeout: 10000
             });
             
             const userData = userResponse.data;
+            
+            // Determine admin status based on multiple criteria
+            const hasAdminRole = userData.role && userData.role.name === ADMIN_ROLE_NAME;
+            const hasAdminPermission = Array.isArray(userData.permissions) && 
+                                      userData.permissions.includes(ADMIN_PERMISSION);
+            const isAdmin = hasAdminRole || hasAdminPermission || userData.is_admin === true;
+            
+            console.log("[NextAuth] User data retrieved successfully");
+            console.log("[NextAuth] Admin status:", { 
+              hasAdminRole, 
+              hasAdminPermission, 
+              backendIsAdmin: userData.is_admin,
+              calculatedIsAdmin: isAdmin 
+            });
             
             return {
               id: userData.id.toString(),
@@ -76,7 +85,7 @@ const handler = NextAuth({
               name: userData.mobile_number,
               role: userData.role?.name || null,
               role_id: userData.role_id || null,
-              is_admin: userData.permissions?.includes('admin_access') || userData.role?.name === 'admin',
+              is_admin: isAdmin,
               permissions: userData.permissions || [],
               accessToken: response.data.access_token
             };
@@ -84,28 +93,10 @@ const handler = NextAuth({
             console.error("[NextAuth] No token in response:", response.data);
             return null;
           }
-        } catch (error: unknown) {
-          if (axios.isAxiosError(error)) {
-            const axiosError = error as AxiosError<BackendErrorDetail>; // Use interface here
-            if (axiosError.response) {
-              console.error(`[NextAuth] API error ${axiosError.response.status}:`, 
-                axiosError.response.data);
-              // Now access 'detail' safely
-              const detail = axiosError.response.data?.detail || `Error ${axiosError.response.status}: Login failed`;
-              throw new Error(detail);
-            } else if (axiosError.request) {
-              console.error("[NextAuth] Network error - no response from server:", axiosError.message);
-              throw new Error("Cannot connect to authentication server. Please try again.");
-            } else {
-              console.error("[NextAuth] Request setup error:", axiosError.message);
-              throw new Error("Login request failed. Please try again.");
-            }
-          } else {
-            console.error("[NextAuth] Non-Axios error:", error);
-            throw new Error("Authentication failed. Please try again.");
-          }
+        } catch (error) {
+          return handleAuthError(error, 'Login');
         }
-      },
+      }
     }),
   ],
   session: {

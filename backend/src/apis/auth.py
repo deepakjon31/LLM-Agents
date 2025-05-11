@@ -221,25 +221,40 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
         )
 
 @router.get("/me", response_model=UserWithPermissions)
-def read_users_me(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    logger.info(f"Getting user profile for user id: {current_user.id}")
-    
-    # Get user permissions
-    permissions = get_user_permissions(db, current_user.id)
-    
-    # Create response with role information
-    response = UserWithPermissions(
-        id=current_user.id,
-        mobile_number=current_user.mobile_number,
-        email=current_user.email,
-        role_id=current_user.role_id,
-        role=current_user.role,
-        created_at=current_user.created_at,
-        updated_at=current_user.updated_at,
-        permissions=permissions
-    )
-    
-    return response
+async def get_current_user_info(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Get the current authenticated user info including permissions"""
+    try:
+        # Get user permissions
+        permissions = get_user_permissions(db, current_user.id)
+        
+        # Get user role
+        role = None
+        if current_user.role_id:
+            role = db.query(Role).filter(Role.id == current_user.role_id).first()
+        
+        # Determine admin status based on multiple criteria
+        is_admin = False
+        if role and role.name == AuthConfig.ADMIN_ROLE_NAME:
+            is_admin = True
+        elif AuthConfig.ADMIN_PERMISSION_NAME in permissions:
+            is_admin = True
+            
+        # Return user data with permissions and role
+        return {
+            "id": current_user.id,
+            "mobile_number": current_user.mobile_number,
+            "email": current_user.email,
+            "role_id": current_user.role_id,
+            "role": role,
+            "permissions": permissions,
+            "is_admin": is_admin
+        }
+    except Exception as e:
+        logger.error(f"Error retrieving user info: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error retrieving user info: {str(e)}"
+        )
 
 @router.put("/me", response_model=UserResponse)
 def update_user(

@@ -13,11 +13,33 @@ const AdminPanel: React.FC = () => {
   const { data: session, status } = useSession();
   const [activeTab, setActiveTab] = useState<AdminTab>('users');
   const [isAdmin, setIsAdmin] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     // Check admin access using utility function
     if (session) {
-      setIsAdmin(sessionHasAdminAccess(session));
+      try {
+        const hasAccess = sessionHasAdminAccess(session);
+        console.debug('Admin access check in AdminPanel:', { 
+          hasAccess, 
+          session: {
+            user: {
+              role: session.user?.role,
+              permissions: session.user?.permissions,
+              is_admin: session.user?.is_admin
+            }
+          } 
+        });
+        setIsAdmin(hasAccess);
+        
+        if (!hasAccess) {
+          setErrorMessage('You do not have admin privileges. Please contact an administrator.');
+        }
+      } catch (error) {
+        console.error('Error checking admin access:', error);
+        setErrorMessage('Error determining admin access. Please try again later.');
+        setIsAdmin(false);
+      }
     }
   }, [session]);
 
@@ -45,8 +67,16 @@ const AdminPanel: React.FC = () => {
         <div className="py-10">
           <h3 className="text-xl font-medium text-red-600">Access Denied</h3>
           <p className="mt-2 text-gray-600">
-            You do not have permission to access the admin panel.
+            {errorMessage || 'You do not have permission to access the admin panel.'}
           </p>
+          <div className="mt-4 p-4 bg-gray-100 rounded text-left">
+            <p className="font-semibold">Debug Info:</p>
+            <p>Role: {session.user?.role || 'None'}</p>
+            <p>Admin Flag: {session.user?.is_admin ? 'True' : 'False'}</p>
+            <p>Permissions: {Array.isArray(session.user?.permissions) 
+              ? session.user.permissions.join(', ') 
+              : 'None'}</p>
+          </div>
         </div>
       </div>
     );
